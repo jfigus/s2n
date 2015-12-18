@@ -55,9 +55,11 @@ You'll need to set S2N_ENABLE_CLIENT_MODE=1 on the client side.  By default S2N 
 support, probably because there's no logic to actually verify the server certificate.  Using two
 terminal windows, run both of the following commands:
 
+```c
 s2nd localhost 8443
 
 s2nc localhost 8443
+```
 
 
 The original S2N readme follows...
