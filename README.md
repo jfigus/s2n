@@ -1,3 +1,65 @@
+## What is this repo?
+
+This repo is a fork of the Amazon S2N TLS stack.  This fork will include support
+for TLS 1.3 as defined in [draft-ietf-tls-tls13-10].  This code is being developed
+as an academic exercise.  This code is not intended for commercial use, has not
+been through the appropriate security reviews and is for experimentation only.
+
+The goal of this fork is to better understand the hurdles for implementating TLS 1.3,
+along with providing feedback to the IETF TLS WG as needed.  This code is a work-in-progress,
+as the TLS 1.3 draft has not been ratified.  Further revisions to the TLS 1.3 draft
+are anticipated.  It is my hope to update this code as the draft is revised in the future.
+
+The S2N stack was chosen for this exercise because of it's simplicity.  While my
+experience with TLS is limited to the OpenSSL stack, the state machine implementation
+within OpenSSL doesn't lend itself well for the TLS 1.3 state machine changes.  The
+S2N stack appears to be a clean room implementation of TLS, supporting up through TLS 1.2.
+S2N implements a more structured state machine than OpenSSL.  Having said that, S2N is
+not without shortcomings.  S2N does not provide sufficient TLS client side capabilities
+for commericial use.  For instance, S2N does not verify the server certificate during
+a TLS handshake.  S2N has minimal support for TLS extensions.  S2N does not support
+ECDSA certificates.  There are probably other shortcomings that I'm failing to mention.
+However, for the purposes of this exercise, S2N is easier to extend for TLS 1.3 than
+OpenSSL. 
+
+## Project status
+
+The initial goal of this exercise is to provide support for a 1-RTT handshake.  The
+following TLS 1.3 requirements have been implemented:
+
+KeyShare extension is handled in both Client and Server hello messages
+EncryptedExtensions message has been implemented
+HKDF is implemented per RFC5869 to generate xES and master_secret
+ECDHE key exchange is working (limited to prime256v1 curve)
+Handshake key expansion using xES is working
+Obsolete messages removed from handshake (e.g. ServerKeyExchange)
+
+The following items remain to fully implement 1-RTT:
+Application key expansion using master_secret
+HelloRetryRequest message not implemented
+ServerConfiguration message not implemented
+Hash selection is not derived from negotiated cipher suite
+DH key exchange is not implemented in KeyShare extension
+
+## How to use this fork 
+
+To use this code, follow the S2N build instructions.  However, onl the OpenSSL crypto layer is supported
+in this fork.  S2N has abstracted the crypto layer, allowing OpenSSL or another library to be used
+for crypto support.  I have not fully honored this abstraction layer in this fork.  Therefore,
+you will need to use OpenSSL for crypto support with S2N.  
+The code in this fork was developed on a Ubuntu 14 system (64-bit).  You'll need the OpenSSL devel
+package installed.
+Once S2N is compiled and LD_LIBRARY_PATH has been setup, use s2nc and s2nd to setup a TLS 1.3 session.
+You'll need to set S2N_ENABLE_CLIENT_MODE=1 on the client side.  By default S2N disables client side
+support, probably because there's no logic to actually verify the server certificate.  Using two
+terminal windows, run both of the following commands:
+
+s2nd localhost 8443
+s2nc localhost 8443
+
+
+The original S2N readme follows...
+
 <img src="docs/images/s2n_logo_github.png" alt="s2n">
 
 s2n is a C99 implementation of the TLS/SSL protocols that is designed to be simple, small, fast, and with security as a priority. It is released and licensed under the Apache Software License 2.0. 
