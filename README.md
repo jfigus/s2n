@@ -44,7 +44,7 @@ The following items remain to fully implement 1-RTT:
 
 ## How to use this fork 
 
-To use this code, follow the S2N build instructions.  However, onl the OpenSSL crypto layer is supported
+To use this code, follow the S2N build instructions.  However, only the OpenSSL crypto layer is supported
 in this fork.  S2N has abstracted the crypto layer, allowing OpenSSL or another library to be used
 for crypto support.  I have not fully honored this abstraction layer in this fork.  Therefore,
 you will need to use OpenSSL for crypto support with S2N.  
@@ -56,6 +56,7 @@ support, probably because there's no logic to actually verify the server certifi
 terminal windows, run both of the following commands:
 
 s2nd localhost 8443
+
 s2nc localhost 8443
 
 
