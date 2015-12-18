@@ -90,6 +90,8 @@ int s2n_record_write(struct s2n_connection *conn, uint8_t content_type, struct s
     struct s2n_cipher_suite *cipher_suite = conn->server->cipher_suite;
     uint8_t *implicit_iv = conn->server->server_implicit_iv;
 
+    S2N_DEBUG_ENTER;
+
     if (conn->mode == S2N_CLIENT) {
         sequence_number = conn->client->client_sequence_number;
         mac = &conn->client->client_record_mac;

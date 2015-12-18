@@ -97,3 +97,8 @@ typedef enum {
 #define _S2N_ERROR( x )     s2n_debug_str = "Error encountered in " __FILE__ " line " STRING__LINE__ ; s2n_errno = ( x )
 #define S2N_ERROR( x )      _S2N_ERROR( ( x ) ); return -1
 #define S2N_ERROR_PTR( x )  _S2N_ERROR( ( x ) ); return NULL
+
+//Uncomment this to enable lots of debugs
+#define S2N_DEBUG_FLOOD 
+
+

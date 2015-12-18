@@ -28,6 +28,8 @@ int s2n_client_finished_recv(struct s2n_connection *conn)
 {
     uint8_t *our_version;
 
+    S2N_DEBUG_ENTER;
+
     our_version = conn->handshake.client_finished;
     uint8_t *their_version = s2n_stuffer_raw_read(&conn->handshake.io, S2N_TLS_FINISHED_LEN);
     notnull_check(their_version);
@@ -36,7 +38,11 @@ int s2n_client_finished_recv(struct s2n_connection *conn)
         S2N_ERROR(S2N_ERR_BAD_MESSAGE);
     }
 
-    conn->handshake.next_state = SERVER_CHANGE_CIPHER_SPEC;
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	conn->handshake.next_state = HANDSHAKE_OVER;
+    } else {
+	conn->handshake.next_state = SERVER_CHANGE_CIPHER_SPEC;
+    }
 
     return 0;
 }
@@ -45,8 +51,14 @@ int s2n_client_finished_send(struct s2n_connection *conn)
 {
     uint8_t *our_version;
 
-    GUARD(s2n_prf_key_expansion(conn));
+    S2N_DEBUG_ENTER;
+
+    if (conn->actual_protocol_version < S2N_TLS13) {
+	GUARD(s2n_prf_key_expansion(conn));
+    }
     GUARD(s2n_prf_client_finished(conn));
+	//FIXME: *after* we send client finished, we
+	//       will do final key expansion
 
     struct s2n_blob seq = {.data = conn->pending.client_sequence_number, .size = sizeof(conn->pending.client_sequence_number) };
     GUARD(s2n_blob_zero(&seq));
@@ -61,7 +73,11 @@ int s2n_client_finished_send(struct s2n_connection *conn)
         GUARD(s2n_stuffer_write_bytes(&conn->handshake.io, our_version, S2N_TLS_FINISHED_LEN));
     }
 
-    conn->handshake.next_state = SERVER_CHANGE_CIPHER_SPEC;
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	conn->handshake.next_state = HANDSHAKE_OVER;
+    } else {
+	conn->handshake.next_state = SERVER_CHANGE_CIPHER_SPEC;
+    }
 
     return 0;
 }

@@ -114,6 +114,8 @@ static int s2n_connection_free_keys(struct s2n_connection *conn)
     GUARD(s2n_dh_params_free(&conn->active.server_dh_params));
     GUARD(s2n_ecc_params_free(&conn->pending.server_ecc_params));
     GUARD(s2n_ecc_params_free(&conn->active.server_ecc_params));
+    GUARD(s2n_ecc_params_free(&conn->pending.ckeyshare_ecc_params));
+    GUARD(s2n_ecc_params_free(&conn->pending.skeyshare_ecc_params));
 
     GUARD(s2n_free(&conn->status_response));
 
@@ -222,6 +224,7 @@ int s2n_connection_wipe(struct s2n_connection *conn)
     GUARD(s2n_hash_init(&conn->handshake.server_md5, S2N_HASH_MD5));
     GUARD(s2n_hash_init(&conn->handshake.server_sha1, S2N_HASH_SHA1));
     GUARD(s2n_hash_init(&conn->handshake.server_sha256, S2N_HASH_SHA256));
+    GUARD(s2n_hash_init(&conn->handshake.server_hello, S2N_HASH_SHA256)); //FIXME: hardcoded to sha-256 for now, needs to derive from negotiated cipher suite
     GUARD(s2n_hmac_init(&conn->client->client_record_mac, S2N_HMAC_NONE, NULL, 0));
     GUARD(s2n_hmac_init(&conn->server->server_record_mac, S2N_HMAC_NONE, NULL, 0));
 

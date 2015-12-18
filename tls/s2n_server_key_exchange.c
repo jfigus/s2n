@@ -57,7 +57,7 @@ static int s2n_ecdhe_server_key_recv(struct s2n_connection *conn)
 
     GUARD(s2n_hash_init(&signature_hash, conn->pending.signature_digest_alg));
 
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         uint8_t hash_algorithm;
         uint8_t signature_algorithm;
 
@@ -149,7 +149,7 @@ static int s2n_dhe_server_key_recv(struct s2n_connection *conn)
 
     GUARD(s2n_hash_init(&signature_hash, conn->pending.signature_digest_alg));
 
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         uint8_t hash_algorithm;
         uint8_t signature_algorithm;
 
@@ -237,7 +237,7 @@ static int s2n_ecdhe_server_key_send(struct s2n_connection *conn)
     /* Write it out and calcualte the hash */
     GUARD(s2n_ecc_write_ecc_params(&conn->pending.server_ecc_params, out, &ecdhparams));
 
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         GUARD(s2n_stuffer_write_uint8(out, TLS_HASH_ALGORITHM_SHA1));
         GUARD(s2n_stuffer_write_uint8(out, TLS_SIGNATURE_ALGORITHM_RSA));
     }
@@ -275,7 +275,7 @@ static int s2n_dhe_server_key_send(struct s2n_connection *conn)
     /* Write it out */
     GUARD(s2n_dh_params_to_p_g_Ys(&conn->pending.server_dh_params, out, &serverDHparams));
 
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         GUARD(s2n_stuffer_write_uint8(out, TLS_HASH_ALGORITHM_SHA1));
         GUARD(s2n_stuffer_write_uint8(out, TLS_SIGNATURE_ALGORITHM_RSA));
     }

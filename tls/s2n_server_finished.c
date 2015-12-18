@@ -30,6 +30,8 @@ int s2n_server_finished_recv(struct s2n_connection *conn)
     int length = S2N_TLS_FINISHED_LEN;
     our_version = conn->handshake.server_finished;
 
+    S2N_DEBUG_ENTER;
+
     if (conn->actual_protocol_version == S2N_SSLv3) {
         length = S2N_SSL_FINISHED_LEN;
     }
@@ -41,7 +43,12 @@ int s2n_server_finished_recv(struct s2n_connection *conn)
         S2N_ERROR(S2N_ERR_BAD_MESSAGE);
     }
 
-    conn->handshake.next_state = HANDSHAKE_OVER;
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	//FIXME: no client auth support yet
+	conn->handshake.next_state = CLIENT_FINISHED;
+    } else {
+	conn->handshake.next_state = HANDSHAKE_OVER;
+    }
 
     return 0;
 }
@@ -51,6 +58,13 @@ int s2n_server_finished_send(struct s2n_connection *conn)
     uint8_t *our_version;
     int length = S2N_TLS_FINISHED_LEN;
 
+    S2N_DEBUG_ENTER;
+
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	/* Compute the finished message */
+	GUARD(s2n_prf_server_finished(conn));
+    }
+
     our_version = conn->handshake.server_finished;
 
     if (conn->actual_protocol_version == S2N_SSLv3) {
@@ -59,13 +73,16 @@ int s2n_server_finished_send(struct s2n_connection *conn)
 
     GUARD(s2n_stuffer_write_bytes(&conn->handshake.io, our_version, length));
 
-    /* Zero the sequence number */
-    struct s2n_blob seq = {.data = conn->pending.server_sequence_number, .size = S2N_TLS_SEQUENCE_NUM_LEN };
-    GUARD(s2n_blob_zero(&seq));
+    /* For TLS 1.3, we started encrypting when sending the Encrypted Ext message */
+    if (conn->actual_protocol_version < S2N_TLS13) {
+	/* Zero the sequence number */
+	struct s2n_blob seq = {.data = conn->pending.server_sequence_number, .size = S2N_TLS_SEQUENCE_NUM_LEN };
+	GUARD(s2n_blob_zero(&seq));
 
-    /* Update the pending state to active, and point the client at the active state */
-    memcpy_check(&conn->active, &conn->pending, sizeof(conn->active));
-    conn->client = &conn->active;
+	/* Update the pending state to active, and point the client at the active state */
+	memcpy_check(&conn->active, &conn->pending, sizeof(conn->active));
+	conn->client = &conn->active;
+    }
 
     conn->handshake.next_state = HANDSHAKE_OVER;
 

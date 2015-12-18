@@ -20,11 +20,14 @@
 
 #include "tls/s2n_tls_parameters.h"
 #include "tls/s2n_connection.h"
+#include "tls/s2n_tls.h"
 
 #include "stuffer/s2n_stuffer.h"
 
 #include "utils/s2n_safety.h"
 #include "utils/s2n_blob.h"
+#include <openssl/ec.h>
+#include <openssl/ecdh.h>
 
 static int s2n_server_name_rcv(struct s2n_connection *conn, struct s2n_stuffer *extension);
 static int s2n_signature_algorithms_rcv(struct s2n_connection *conn, struct s2n_stuffer *extension);
@@ -37,8 +40,10 @@ int s2n_client_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *
 {
     uint16_t total_size = 0;
 
+    S2N_DEBUG_ENTER;
+
     /* Signature algorithms */
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         total_size += 8;
     }
 
@@ -55,13 +60,23 @@ int s2n_client_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *
         total_size += 9;
     }
 
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	uint8_t point_len;
+	//FIXME: hardcoded to prime256 for now
+	conn->pending.ckeyshare_ecc_params.negotiated_curve = &s2n_ecc_supported_curves[0];
+	GUARD(s2n_ecc_generate_ephemeral_key(&conn->pending.ckeyshare_ecc_params));
+	GUARD(s2n_ecc_calculate_point_length(EC_KEY_get0_public_key((&conn->pending.ckeyshare_ecc_params)->ec_key), 
+		                             EC_KEY_get0_group((&conn->pending.ckeyshare_ecc_params)->ec_key), &point_len));
+	total_size += 8 + point_len;
+    }
+
     /* Write ECC extensions: Supported Curves and Supported Point Formats */
     int ec_curves_count = sizeof(s2n_ecc_supported_curves) / sizeof(s2n_ecc_supported_curves[0]);
     total_size += 12 + ec_curves_count * 2;
 
     GUARD(s2n_stuffer_write_uint16(out, total_size));
 
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         /* The extension header */
         GUARD(s2n_stuffer_write_uint16(out, TLS_EXTENSION_SIGNATURE_ALGORITHMS));
         GUARD(s2n_stuffer_write_uint16(out, 4));
@@ -130,12 +145,18 @@ int s2n_client_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *
         GUARD(s2n_stuffer_write_uint8(out, 0));
     }
 
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	return (s2n_keyshare_send(conn, out));
+    }
+
     return 0;
 }
 
 int s2n_client_extensions_recv(struct s2n_connection *conn, struct s2n_blob *extensions)
 {
     struct s2n_stuffer in;
+
+    S2N_DEBUG_ENTER;
 
     GUARD(s2n_stuffer_init(&in, extensions));
     GUARD(s2n_stuffer_write(&in, extensions));
@@ -155,7 +176,6 @@ int s2n_client_extensions_recv(struct s2n_connection *conn, struct s2n_blob *ext
 
         GUARD(s2n_stuffer_init(&extension, &ext));
         GUARD(s2n_stuffer_write(&extension, &ext));
-
         switch (extension_type) {
         case TLS_EXTENSION_SERVER_NAME:
             GUARD(s2n_server_name_rcv(conn, &extension));
@@ -175,6 +195,9 @@ int s2n_client_extensions_recv(struct s2n_connection *conn, struct s2n_blob *ext
         case TLS_EXTENSION_EC_POINT_FORMATS:
             GUARD(s2n_ec_point_formats_rcv(conn, &extension));
             break;
+        case TLS_EXTENSION_KEYSHARE:
+	    GUARD(s2n_keyshare_rcv(conn, &extension));
+	    break;
        }
     }
 

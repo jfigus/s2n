@@ -30,6 +30,8 @@ int s2n_server_cert_recv(struct s2n_connection *conn)
 {
     uint32_t size_of_all_certificates;
 
+    S2N_DEBUG_ENTER;
+
     GUARD(s2n_stuffer_read_uint24(&conn->handshake.io, &size_of_all_certificates));
 
     if (size_of_all_certificates > s2n_stuffer_data_available(&conn->handshake.io) || size_of_all_certificates < 3) {
@@ -64,12 +66,19 @@ int s2n_server_cert_recv(struct s2n_connection *conn)
 
     gte_check(certificate_count, 1);
 
-    conn->handshake.next_state = SERVER_HELLO_DONE;
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	//FIXME: no client auth support yet
+	/* Compute the finished message */
+	GUARD(s2n_prf_server_finished(conn));
+	conn->handshake.next_state = SERVER_FINISHED;
+    } else {
+	conn->handshake.next_state = SERVER_HELLO_DONE;
 
-    if (conn->status_type == S2N_STATUS_REQUEST_OCSP) {
-        conn->handshake.next_state = SERVER_CERT_STATUS;
-    } else if (conn->pending.cipher_suite->key_exchange_alg->flags & S2N_KEY_EXCHANGE_EPH) {
-        conn->handshake.next_state = SERVER_KEY;
+	if (conn->status_type == S2N_STATUS_REQUEST_OCSP) {
+	    conn->handshake.next_state = SERVER_CERT_STATUS;
+	} else if (conn->pending.cipher_suite->key_exchange_alg->flags & S2N_KEY_EXCHANGE_EPH) {
+	    conn->handshake.next_state = SERVER_KEY;
+	}
     }
 
     return 0;
@@ -79,6 +88,8 @@ int s2n_server_cert_send(struct s2n_connection *conn)
 {
     struct s2n_cert_chain *head = conn->server->chosen_cert_chain->head;
 
+    S2N_DEBUG_ENTER;
+
     GUARD(s2n_stuffer_write_uint24(&conn->handshake.io, conn->server->chosen_cert_chain->chain_size));
 
     while (head) {
@@ -87,12 +98,17 @@ int s2n_server_cert_send(struct s2n_connection *conn)
         head = head->next;
     }
 
-    conn->handshake.next_state = SERVER_HELLO_DONE;
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	//FIXME: no client auth support yet
+	conn->handshake.next_state = SERVER_FINISHED;
+    } else {
+	conn->handshake.next_state = SERVER_HELLO_DONE;
 
-    if (s2n_server_can_send_ocsp(conn)) {
-        conn->handshake.next_state = SERVER_CERT_STATUS;
-    } else if (conn->pending.cipher_suite->key_exchange_alg->flags & S2N_KEY_EXCHANGE_EPH) {
-        conn->handshake.next_state = SERVER_KEY;
+	if (s2n_server_can_send_ocsp(conn)) {
+	    conn->handshake.next_state = SERVER_CERT_STATUS;
+	} else if (conn->pending.cipher_suite->key_exchange_alg->flags & S2N_KEY_EXCHANGE_EPH) {
+	    conn->handshake.next_state = SERVER_KEY;
+	}
     }
 
     return 0;

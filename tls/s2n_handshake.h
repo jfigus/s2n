@@ -34,6 +34,7 @@ struct s2n_handshake {
     struct s2n_hash_state server_md5;
     struct s2n_hash_state server_sha1;
     struct s2n_hash_state server_sha256;
+    struct s2n_hash_state server_hello;
 
     uint8_t server_finished[S2N_SSL_FINISHED_LEN];
     uint8_t client_finished[S2N_SSL_FINISHED_LEN];
@@ -47,6 +48,7 @@ struct s2n_handshake {
     enum handshake_state {
         CLIENT_HELLO,
         SERVER_HELLO,
+	SERVER_ENC_EXT,
         SERVER_CERT,
         SERVER_CERT_STATUS,
         SERVER_KEY,

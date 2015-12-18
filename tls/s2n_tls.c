@@ -17,5 +17,5 @@
 
 #include "tls/s2n_tls.h"
 
-/* Highest version supported by s2n is TLS1.2 */
-uint8_t s2n_highest_protocol_version = S2N_TLS12;
+/* Highest version supported by s2n is TLS1.3 */
+uint8_t s2n_highest_protocol_version = S2N_TLS13;

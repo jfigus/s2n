@@ -36,6 +36,8 @@ int s2n_server_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *
 
     uint8_t application_protocol_len = strlen(conn->application_protocol);
 
+    S2N_DEBUG_ENTER;
+
     if (application_protocol_len) {
         total_size += 7 + application_protocol_len;
     }
@@ -43,9 +45,71 @@ int s2n_server_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *
         total_size += 4;
     }
 
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	uint8_t point_len;
+	/* Our key was already generated when we received the keyshare from the client */
+	GUARD(s2n_ecc_calculate_point_length(EC_KEY_get0_public_key((&conn->pending.skeyshare_ecc_params)->ec_key), 
+		                             EC_KEY_get0_group((&conn->pending.skeyshare_ecc_params)->ec_key), &point_len));
+	total_size += 8 + point_len;
+    } else {
+	/*
+	 * These are not sent in the ServerHello when doing TLS 1.3
+	 */
+	if (application_protocol_len) {
+	    total_size += 7 + application_protocol_len;
+	}
+	if (s2n_server_can_send_ocsp(conn)) {
+	    total_size += 4;
+	}
+    }
+
     if (total_size == 0) {
         return 0;
     }
+
+    GUARD(s2n_stuffer_write_uint16(out, total_size));
+
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	return (s2n_keyshare_send(conn, out));
+    } else {
+	/* Write ALPN extension */
+	if (application_protocol_len) {
+	    GUARD(s2n_stuffer_write_uint16(out, TLS_EXTENSION_ALPN));
+	    GUARD(s2n_stuffer_write_uint16(out, application_protocol_len + 3));
+	    GUARD(s2n_stuffer_write_uint16(out, application_protocol_len + 1));
+	    GUARD(s2n_stuffer_write_uint8(out, application_protocol_len));
+	    GUARD(s2n_stuffer_write_bytes(out, (uint8_t*)conn->application_protocol, application_protocol_len));
+	}
+
+	/* Write OCSP extension */
+	if (s2n_server_can_send_ocsp(conn)) {
+	    GUARD(s2n_stuffer_write_uint16(out, TLS_EXTENSION_STATUS_REQUEST));
+	    GUARD(s2n_stuffer_write_uint16(out, 0));
+	}
+
+    }
+
+    return 0;
+}
+
+int s2n_server_encrypted_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *out)
+{
+    uint16_t total_size = 0;
+    uint8_t application_protocol_len = strlen(conn->application_protocol);
+
+    S2N_DEBUG_ENTER;
+
+    if (application_protocol_len) {
+        total_size += 7 + application_protocol_len;
+    }
+    if (s2n_server_can_send_ocsp(conn)) {
+        total_size += 4;
+    }
+
+    //We have to put the size on the wire even for an empty message
+    //if (total_size == 0) {
+    //    return 0;
+    //}
 
     GUARD(s2n_stuffer_write_uint16(out, total_size));
 
@@ -70,6 +134,8 @@ int s2n_server_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *
 int s2n_server_extensions_recv(struct s2n_connection *conn, struct s2n_blob *extensions)
 {
     struct s2n_stuffer in;
+
+    S2N_DEBUG_ENTER;
 
     GUARD(s2n_stuffer_init(&in, extensions));
     GUARD(s2n_stuffer_write(&in, extensions));
@@ -96,6 +162,9 @@ int s2n_server_extensions_recv(struct s2n_connection *conn, struct s2n_blob *ext
         case TLS_EXTENSION_STATUS_REQUEST:
             GUARD(s2n_server_recv_status_request(conn, &extension));
             break;
+        case TLS_EXTENSION_KEYSHARE:
+	    GUARD(s2n_keyshare_rcv(conn, &extension));
+	    break;
         }
     }
 

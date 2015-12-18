@@ -30,6 +30,11 @@ static int s2n_aead_cipher_aes_gcm_encrypt(struct s2n_session_key *key, struct s
     eq_check(iv->size, S2N_TLS_GCM_IV_LEN);
     eq_check(aad->size, S2N_TLS_GCM_AAD_LEN);
 
+    S2N_DEBUG_ENTER;
+
+    s2n_debug_dumphex("IV ", iv->data, iv->size);
+    s2n_debug_dumphex("AAD ", aad->data, aad->size);
+
     /* Initialize the IV */
     if (EVP_EncryptInit_ex(&key->native_format.evp_cipher_ctx, NULL, NULL, NULL, iv->data) != 1) {
         S2N_ERROR(S2N_ERR_KEY_INIT);
@@ -71,6 +76,11 @@ static int s2n_aead_cipher_aes_gcm_decrypt(struct s2n_session_key *key, struct s
     gte_check(out->size, in->size);
     eq_check(iv->size, S2N_TLS_GCM_IV_LEN);
     eq_check(aad->size, S2N_TLS_GCM_AAD_LEN);
+
+    S2N_DEBUG_ENTER;
+
+    s2n_debug_dumphex("IV ", iv->data, iv->size);
+    s2n_debug_dumphex("AAD ", aad->data, aad->size);
 
     /* Initialize the IV */
     if (EVP_DecryptInit_ex(&key->native_format.evp_cipher_ctx, NULL, NULL, NULL, iv->data) != 1) {

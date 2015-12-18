@@ -44,6 +44,8 @@ struct s2n_crypto_parameters {
     struct s2n_rsa_public_key server_rsa_public_key;
     struct s2n_dh_params server_dh_params;
     struct s2n_ecc_params server_ecc_params;
+    struct s2n_ecc_params ckeyshare_ecc_params;
+    struct s2n_ecc_params skeyshare_ecc_params;
     struct s2n_cert_chain_and_key *chosen_cert_chain;
     s2n_hash_algorithm signature_digest_alg;
 
@@ -53,6 +55,7 @@ struct s2n_crypto_parameters {
 
     uint8_t rsa_premaster_secret[S2N_TLS_SECRET_LEN];
     uint8_t master_secret[S2N_TLS_SECRET_LEN];
+    uint8_t master_secret_len; /* TLS 1.3 master_secret is length of hash function */
     uint8_t client_random[S2N_TLS_RANDOM_DATA_LEN];
     uint8_t server_random[S2N_TLS_RANDOM_DATA_LEN];
     uint8_t client_implicit_iv[S2N_TLS_MAX_IV_LEN];

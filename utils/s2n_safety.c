@@ -20,7 +20,8 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <stdint.h>
-
+#include <stdio.h>
+#include "error/s2n_errno.h"
 /**
  * Get the process id
  *
@@ -61,3 +62,21 @@ int s2n_constant_time_copy_or_dont(uint8_t *a, const uint8_t *b, uint32_t len, u
 
     return 0;
 }
+
+
+//FIXME: putting this here for now, for lack of a better place to
+//       put this.  As I learn more about s2n, hopefully a better
+//       home for debug logic will present itself.
+void s2n_debug_dumphex(const char *label, uint8_t *data, uint16_t len)
+{
+#ifdef S2N_DEBUG_FLOOD
+    int i;
+
+    printf("%s", label);
+    for (i=0; i<len; i++) {
+	printf("%02x ", data[i]);
+    }
+    printf("\n");
+#endif
+}
+

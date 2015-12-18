@@ -46,14 +46,14 @@ struct s2n_cipher_suite s2n_all_cipher_suites[] = {
     {"TLS_DHE_RSA_WITH_AES_128_CBC_SHA256", {TLS_DHE_RSA_WITH_AES_128_CBC_SHA256}, &s2n_dhe, &s2n_aes128, S2N_HMAC_SHA256, S2N_TLS12},   /* 0x00,0x67 */
     {"TLS_DHE_RSA_WITH_AES_256_CBC_SHA256", {TLS_DHE_RSA_WITH_AES_256_CBC_SHA256}, &s2n_dhe, &s2n_aes256, S2N_HMAC_SHA256, S2N_TLS12},   /* 0x00,0x6B */
     {"TLS_RSA_WITH_AES_128_GCM_SHA256", {TLS_RSA_WITH_AES_128_GCM_SHA256}, &s2n_rsa, &s2n_aes128_gcm, S2N_HMAC_NONE, S2N_TLS12},   /* 0x00,0x9C */
-    {"TLS_DHE_RSA_WITH_AES_128_GCM_SHA256", {TLS_DHE_RSA_WITH_AES_128_GCM_SHA256}, &s2n_dhe, &s2n_aes128_gcm, S2N_HMAC_NONE, S2N_TLS12},   /* 0x00,0x9E */
+    {"TLS_DHE_RSA_WITH_AES_128_GCM_SHA256", {TLS_DHE_RSA_WITH_AES_128_GCM_SHA256}, &s2n_dhe, &s2n_aes128_gcm, S2N_HMAC_NONE, S2N_TLS13},   /* 0x00,0x9E */
     {"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA", {TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA}, &s2n_ecdhe, &s2n_3des, S2N_HMAC_SHA1, S2N_TLS10},   /* 0xC0,0x12 */
     {"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA", {TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA}, &s2n_ecdhe, &s2n_aes128, S2N_HMAC_SHA1, S2N_TLS10},   /* 0xC0,0x13 */
     {"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA", {TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA}, &s2n_ecdhe, &s2n_aes256, S2N_HMAC_SHA1, S2N_TLS10},   /* 0xC0,0x14 */
     {"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256", {TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256}, &s2n_ecdhe, &s2n_aes128, S2N_HMAC_SHA256, S2N_TLS12},   /* 0xC0,0x27 */
     {"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384", {TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384}, &s2n_ecdhe, &s2n_aes256, S2N_HMAC_SHA384, S2N_TLS12},   /* 0xC0,0x28 */
-    {"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", {TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256}, &s2n_ecdhe, &s2n_aes128_gcm, S2N_HMAC_NONE, S2N_TLS12},   /* 0xC0,0x2F */
-    {"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", {TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384}, &s2n_ecdhe, &s2n_aes256_gcm, S2N_HMAC_NONE, S2N_TLS12},   /* 0xC0,0x30 */
+    {"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", {TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256}, &s2n_ecdhe, &s2n_aes128_gcm, S2N_HMAC_SHA256, S2N_TLS13},   /* 0xC0,0x2F */
+    {"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", {TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384}, &s2n_ecdhe, &s2n_aes256_gcm, S2N_HMAC_SHA384, S2N_TLS13},   /* 0xC0,0x30 */
 };
 
 /* This is the initial cipher suite, but is never negotiated */
@@ -105,7 +105,7 @@ static int s2n_set_cipher_as_server(struct s2n_connection *conn, uint8_t *wire, 
             uint8_t *theirs = wire + (j * cipher_suite_len) + (cipher_suite_len - S2N_TLS_CIPHER_SUITE_LEN);
 
             if (!memcmp(fallback_scsv, theirs, S2N_TLS_CIPHER_SUITE_LEN)) {
-                if (conn->client_protocol_version < S2N_TLS12) {
+                if (conn->client_protocol_version < S2N_TLS13) {
                     conn->closed = 1;
                     S2N_ERROR(S2N_ERR_FALLBACK_DETECTED);
                 }

@@ -39,7 +39,7 @@
 #define inclusive_range_check( low, n, high )  gte_check(n, low); lte_check(n, high)
 #define exclusive_range_check( low, n, high )  gt_check(n, low); lt_check(n, high)
 
-#define GUARD( x )      if ( (x) < 0 ) return -1
+#define GUARD( x )      if ( (x) < 0 ) { S2N_ERROR(S2N_ERR_SAFETY); return -1; }
 #define GUARD_PTR( x )  if ( (x) < 0 ) return NULL
 
 /**
@@ -55,3 +55,22 @@ extern int s2n_constant_time_equals(const uint8_t *a, const uint8_t *b, uint32_t
 
 /* Copy src to dst, or don't copy it, in constant time */
 extern int s2n_constant_time_copy_or_dont(const uint8_t *dst, const uint8_t *src, uint32_t len, uint8_t dont);
+
+
+
+//FIXME: look for a better home for debug logic
+extern void s2n_debug_dumphex(const char *label, uint8_t *data, uint16_t len);
+
+#ifdef S2N_DEBUG_FLOOD
+#include <stdio.h>
+#define S2N_DEBUG_ENTER do { \
+    printf("enter - %s\n", __FUNCTION__); \
+} while (0)
+#define S2N_DEBUG_EXIT do { \
+    printf("enter - %s\n", __FUNCTION__); \
+} while (0)
+#else
+#define S2N_DEBUG_ENTER 
+#define S2N_DEBUG_EXIT 
+#endif
+

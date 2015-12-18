@@ -28,6 +28,9 @@
 #include "utils/s2n_safety.h"
 #include "utils/s2n_random.h"
 
+//FIXME
+extern int s2n_tls13_dodh(struct s2n_connection *conn);
+
 /* From RFC5246 7.4.1.2. */
 #define S2N_TLS_COMPRESSION_METHOD_NULL 0
 
@@ -39,6 +42,8 @@ int s2n_server_hello_recv(struct s2n_connection *conn)
     uint8_t session_id_len;
     uint16_t extensions_size;
     uint8_t protocol_version[S2N_TLS_PROTOCOL_VERSION_LEN];
+
+    S2N_DEBUG_ENTER;
 
     GUARD(s2n_stuffer_read_bytes(in, protocol_version, S2N_TLS_PROTOCOL_VERSION_LEN));
 
@@ -52,17 +57,19 @@ int s2n_server_hello_recv(struct s2n_connection *conn)
     conn->actual_protocol_version_established = 1;
 
     /* Verify that the protocol version is sane */
-    if (conn->actual_protocol_version < S2N_SSLv3 || conn->actual_protocol_version > S2N_TLS12) {
+    if (conn->actual_protocol_version < S2N_SSLv3 || conn->actual_protocol_version > S2N_TLS13) {
         S2N_ERROR(S2N_ERR_BAD_MESSAGE);
     }
 
     conn->pending.signature_digest_alg = S2N_HASH_MD5_SHA1;
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         conn->pending.signature_digest_alg = S2N_HASH_SHA1;
     }
 
     GUARD(s2n_stuffer_read_bytes(in, conn->pending.server_random, S2N_TLS_RANDOM_DATA_LEN));
     GUARD(s2n_stuffer_read_uint8(in, &session_id_len));
+
+    s2n_debug_dumphex("on wire serv rand: ", conn->pending.server_random, S2N_TLS_RANDOM_DATA_LEN);
 
     if (session_id_len > S2N_TLS_SESSION_ID_LEN) {
         S2N_ERROR(S2N_ERR_BAD_MESSAGE);
@@ -96,7 +103,21 @@ int s2n_server_hello_recv(struct s2n_connection *conn)
 
     GUARD(s2n_server_extensions_recv(conn, &extensions));
 
-    conn->handshake.next_state = SERVER_CERT;
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	/* Generate the key material for the session */
+	GUARD(s2n_tls13_dodh(conn));
+	//GUARD(s2n_prf_key_expansion(conn));
+	/* Zero the sequence number */
+	struct s2n_blob seq = {.data = conn->pending.server_sequence_number, .size = S2N_TLS_SEQUENCE_NUM_LEN };
+	GUARD(s2n_blob_zero(&seq));
+
+	/* Update the pending state to active, and point the client at the active state */
+	memcpy_check(&conn->active, &conn->pending, sizeof(conn->active));
+	conn->client = &conn->active;
+	conn->handshake.next_state = SERVER_ENC_EXT;
+    } else {
+	conn->handshake.next_state = SERVER_CERT;
+    }
 
     return 0;
 }
@@ -109,6 +130,8 @@ int s2n_server_hello_send(struct s2n_connection *conn)
     struct s2n_blob b, r;
     uint8_t session_id_len = 0;
     uint8_t protocol_version[S2N_TLS_PROTOCOL_VERSION_LEN];
+
+    S2N_DEBUG_ENTER;
 
     b.data = conn->pending.server_random;
     b.size = S2N_TLS_RANDOM_DATA_LEN;
@@ -130,7 +153,7 @@ int s2n_server_hello_send(struct s2n_connection *conn)
     protocol_version[1] = conn->actual_protocol_version % 10;
 
     conn->pending.signature_digest_alg = S2N_HASH_MD5_SHA1;
-    if (conn->actual_protocol_version == S2N_TLS12) {
+    if (conn->actual_protocol_version >= S2N_TLS12) {
         conn->pending.signature_digest_alg = S2N_HASH_SHA1;
     }
 
@@ -143,7 +166,12 @@ int s2n_server_hello_send(struct s2n_connection *conn)
     GUARD(s2n_server_extensions_send(conn, out));
 
     conn->actual_protocol_version_established = 1;
-    conn->handshake.next_state = SERVER_CERT;
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	conn->handshake.next_state = SERVER_ENC_EXT;
+    } else {
+	conn->handshake.next_state = SERVER_CERT;
+    }
 
     return 0;
 }
+

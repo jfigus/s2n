@@ -44,4 +44,8 @@ int s2n_ecc_compute_shared_secret_as_server(struct s2n_ecc_params *server_ecc_pa
 int s2n_ecc_compute_shared_secret_as_client(struct s2n_ecc_params *server_ecc_params, struct s2n_stuffer *Yc_out, struct s2n_blob *shared_key);
 int s2n_ecc_find_supported_curve(struct s2n_blob *iana_ids, const struct s2n_ecc_named_curve **found);
 int s2n_ecc_params_free(struct s2n_ecc_params *server_ecc_params);
+int s2n_ecc_calculate_point_length(const EC_POINT *point, const EC_GROUP *group, uint8_t *length);
+int s2n_ecc_write_point_data_snug(const EC_POINT *point, const EC_GROUP *group, struct s2n_blob *out);
+EC_POINT *s2n_ecc_blob_to_point(struct s2n_blob *blob, const EC_KEY *ec_key);
+int s2n_ecc_compute_shared_secret(EC_KEY *own_key, const EC_POINT *peer_public, struct s2n_blob *shared_secret);
 

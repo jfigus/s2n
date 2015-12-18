@@ -31,6 +31,7 @@
 #define TLS_HELLO_REQUEST       0
 #define TLS_CLIENT_HELLO        1
 #define TLS_SERVER_HELLO        2
+#define TLS_ENCRYPTED_EXT       8 
 #define TLS_SERVER_CERT         11
 #define TLS_SERVER_KEY          12
 #define TLS_SERVER_CERT_REQ     13
@@ -53,6 +54,7 @@ static struct s2n_handshake_action state_machine[] = {
     /*Message type  Handshake type       Writer S2N_SERVER                S2N_CLIENT                   handshake.state              */
     {TLS_HANDSHAKE, TLS_CLIENT_HELLO,      'C', {s2n_client_hello_recv,    s2n_client_hello_send}},    /* CLIENT_HELLO              */
     {TLS_HANDSHAKE, TLS_SERVER_HELLO,      'S', {s2n_server_hello_send,    s2n_server_hello_recv}},    /* SERVER_HELLO              */
+    {TLS_HANDSHAKE, TLS_ENCRYPTED_EXT,     'S', {s2n_encrypted_ext_send,   s2n_encrypted_ext_recv}},   /* SERVER_ENC_EXT            */
     {TLS_HANDSHAKE, TLS_SERVER_CERT,       'S', {s2n_server_cert_send,     s2n_server_cert_recv}},     /* SERVER_CERT               */
     {TLS_HANDSHAKE, TLS_SERVER_CERT_STATUS,'S', {s2n_server_status_send,   s2n_server_status_recv}},   /* SERVER_CERT_STATUS        */
     {TLS_HANDSHAKE, TLS_SERVER_KEY,        'S', {s2n_server_key_send,      s2n_server_key_recv}},      /* SERVER_KEY                */
@@ -70,12 +72,18 @@ static struct s2n_handshake_action state_machine[] = {
 
 static int s2n_conn_update_handshake_hashes(struct s2n_connection *conn, struct s2n_blob *data)
 {
+    S2N_DEBUG_ENTER;
+
+    //TODO: Wasted cycles here, we shouldn't need MD5/SHA1 for >TLS 1.2
     GUARD(s2n_hash_update(&conn->handshake.client_md5, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.client_sha1, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.client_sha256, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.server_md5, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.server_sha1, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.server_sha256, data->data, data->size));
+    if (conn->actual_protocol_version > S2N_TLS13) {
+	GUARD(s2n_hash_update(&conn->handshake.server_hello, data->data, data->size));
+    }
 
     return 0;
 }

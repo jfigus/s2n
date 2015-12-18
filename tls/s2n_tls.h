@@ -35,6 +35,9 @@ extern int s2n_client_hello_recv(struct s2n_connection *conn);
 extern int s2n_sslv2_client_hello_recv(struct s2n_connection *conn);
 extern int s2n_server_hello_send(struct s2n_connection *conn);
 extern int s2n_server_hello_recv(struct s2n_connection *conn);
+extern int s2n_server_hello_kdf(struct s2n_connection *conn);
+extern int s2n_encrypted_ext_send(struct s2n_connection *conn);
+extern int s2n_encrypted_ext_recv(struct s2n_connection *conn);
 extern int s2n_server_cert_send(struct s2n_connection *conn);
 extern int s2n_server_cert_recv(struct s2n_connection *conn);
 extern int s2n_server_status_send(struct s2n_connection *conn);
@@ -60,7 +63,11 @@ extern int s2n_read_full_record(struct s2n_connection *conn, uint8_t *record_typ
 extern int s2n_client_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *out);
 extern int s2n_client_extensions_recv(struct s2n_connection *conn, struct s2n_blob *extensions);
 extern int s2n_server_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *out);
+extern int s2n_server_encrypted_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *out);
 extern int s2n_server_extensions_recv(struct s2n_connection *conn, struct s2n_blob *extensions);
+
+extern int s2n_keyshare_send(struct s2n_connection *conn, struct s2n_stuffer *out);
+extern int s2n_keyshare_rcv(struct s2n_connection *conn, struct s2n_stuffer *extension);
 
 #define s2n_server_can_send_ocsp(conn) ((conn)->status_type == S2N_STATUS_REQUEST_OCSP && \
         (conn)->config->cert_and_key_pairs && \
