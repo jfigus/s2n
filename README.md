@@ -27,19 +27,20 @@ OpenSSL.
 The initial goal of this exercise is to provide support for a 1-RTT handshake.  The
 following TLS 1.3 requirements have been implemented:
 
-KeyShare extension is handled in both Client and Server hello messages
-EncryptedExtensions message has been implemented
-HKDF is implemented per RFC5869 to generate xES and master_secret
-ECDHE key exchange is working (limited to prime256v1 curve)
-Handshake key expansion using xES is working
-Obsolete messages removed from handshake (e.g. ServerKeyExchange)
+*KeyShare extension is handled in both Client and Server hello messages
+*EncryptedExtensions message has been implemented
+*HKDF is implemented per RFC5869 to generate xES and master_secret
+*ECDHE key exchange is working (limited to prime256v1 curve)
+*Handshake key expansion using xES is working
+*Obsolete messages removed from handshake (e.g. ServerKeyExchange)
 
 The following items remain to fully implement 1-RTT:
-Application key expansion using master_secret
-HelloRetryRequest message not implemented
-ServerConfiguration message not implemented
-Hash selection is not derived from negotiated cipher suite
-DH key exchange is not implemented in KeyShare extension
+
+*Application key expansion using master_secret
+*HelloRetryRequest message not implemented
+*ServerConfiguration message not implemented
+*Hash selection is not derived from negotiated cipher suite
+*DH key exchange is not implemented in KeyShare extension
 
 ## How to use this fork 
 
