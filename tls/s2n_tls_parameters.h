@@ -52,7 +52,7 @@
 #define TLS_EXTENSION_EC_POINT_FORMATS     11
 #define TLS_EXTENSION_SIGNATURE_ALGORITHMS 13
 #define TLS_EXTENSION_ALPN                 16
-#define TLS_EXTENSION_KEYSHARE           0xff9c //Waiting on IANA registration
+#define TLS_EXTENSION_KEYSHARE             42 //Waiting on IANA registration
 
 /* TLS signature algorithms */
 #define TLS_SIGNATURE_ALGORITHM_RSA         1
