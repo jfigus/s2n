@@ -345,7 +345,8 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
      */
     s2n_blob_init(&zero, NULL, 0);
     s2n_blob_init(&xSS, dataxSS, 0);
-    s2n_blob_init(&pre_master_secret, conn->pending.master_secret,conn->pending.pre_master_secret_len);
+    s2n_blob_init(&pre_master_secret, conn->pending.pre_master_secret,conn->pending.pre_master_secret_len);
+    s2n_debug_dumphex("SS/ES: ", pre_master_secret.data, pre_master_secret.size);
     GUARD(s2n_hkdf_extract(hmac_alg, &zero, &pre_master_secret, &xSS));
     s2n_debug_dumphex("xSS: ", xSS.data, xSS.size);
     xES = &xSS;

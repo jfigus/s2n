@@ -170,6 +170,7 @@ int s2n_tls13_dodh(struct s2n_connection *conn)
      * to calculate the master_secret.
      */
     if (shared_key.size <= S2N_TLS_SECRET_LEN) {
+	s2n_debug_dumphex("ephemeral key: ", shared_key.data, shared_key.size);
 	memcpy(conn->pending.pre_master_secret, shared_key.data, shared_key.size);
 	conn->pending.pre_master_secret_len = shared_key.size;
     } else {
