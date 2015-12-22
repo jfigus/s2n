@@ -47,26 +47,26 @@ struct s2n_handshake_action {
     uint8_t record_type;
     uint8_t message_type;
     char writer;                /* 'S' or 'C' for server or client, 'B' for both */
-    int (*handler[2]) (struct s2n_connection * conn);
+    int (*handler[3]) (struct s2n_connection * conn);
 };
 
 static struct s2n_handshake_action state_machine[] = {
-    /*Message type  Handshake type       Writer S2N_SERVER                S2N_CLIENT                   handshake.state              */
-    {TLS_HANDSHAKE, TLS_CLIENT_HELLO,      'C', {s2n_client_hello_recv,    s2n_client_hello_send}},    /* CLIENT_HELLO              */
-    {TLS_HANDSHAKE, TLS_SERVER_HELLO,      'S', {s2n_server_hello_send,    s2n_server_hello_recv}},    /* SERVER_HELLO              */
-    {TLS_HANDSHAKE, TLS_ENCRYPTED_EXT,     'S', {s2n_encrypted_ext_send,   s2n_encrypted_ext_recv}},   /* SERVER_ENC_EXT            */
-    {TLS_HANDSHAKE, TLS_SERVER_CERT,       'S', {s2n_server_cert_send,     s2n_server_cert_recv}},     /* SERVER_CERT               */
-    {TLS_HANDSHAKE, TLS_SERVER_CERT_STATUS,'S', {s2n_server_status_send,   s2n_server_status_recv}},   /* SERVER_CERT_STATUS        */
-    {TLS_HANDSHAKE, TLS_SERVER_KEY,        'S', {s2n_server_key_send,      s2n_server_key_recv}},      /* SERVER_KEY                */
-    {TLS_HANDSHAKE, TLS_SERVER_CERT_REQ,   'S', {NULL,                     NULL}},                     /* SERVER_CERT_REQ           */
-    {TLS_HANDSHAKE, TLS_SERVER_HELLO_DONE, 'S', {s2n_server_done_send,     s2n_server_done_recv}},     /* SERVER_HELLO_DONE         */
-    {TLS_HANDSHAKE, TLS_CLIENT_CERT,       'C', {NULL,                     NULL}},                     /* CLIENT_CERT               */
-    {TLS_HANDSHAKE, TLS_CLIENT_KEY,        'C', {s2n_client_key_recv,      s2n_client_key_send}},      /* CLIENT_KEY                */
-    {TLS_HANDSHAKE, TLS_CLIENT_CERT_VERIFY,'C', {NULL,                     NULL}},                     /* CLIENT_CERT_VERIFY        */
-    {TLS_CHANGE_CIPHER_SPEC, 0,            'C', {s2n_client_ccs_recv,      s2n_client_ccs_send}},      /* CLIENT_CHANGE_CIPHER_SPEC */
-    {TLS_HANDSHAKE, TLS_CLIENT_FINISHED,   'C', {s2n_client_finished_recv, s2n_client_finished_send}}, /* CLIENT_FINISHED           */
-    {TLS_CHANGE_CIPHER_SPEC, 0,            'S', {s2n_server_ccs_send,      s2n_server_ccs_recv}},      /* SERVER_CHANGE_CIPHER_SPEC */
-    {TLS_HANDSHAKE, TLS_SERVER_FINISHED,   'S', {s2n_server_finished_send, s2n_server_finished_recv}}, /* SERVER_FINISHED           */
+    /*Message type  Handshake type       Writer S2N_SERVER                S2N_CLIENT                                                   handshake.state              */
+    {TLS_HANDSHAKE, TLS_CLIENT_HELLO,      'C', {s2n_client_hello_recv,    s2n_client_hello_send,     NULL}},                          /* CLIENT_HELLO              */
+    {TLS_HANDSHAKE, TLS_SERVER_HELLO,      'S', {s2n_server_hello_send,    s2n_server_hello_recv,     NULL}},                          /* SERVER_HELLO              */
+    {TLS_HANDSHAKE, TLS_ENCRYPTED_EXT,     'S', {s2n_encrypted_ext_send,   s2n_encrypted_ext_recv,    NULL}},                          /* SERVER_ENC_EXT            */
+    {TLS_HANDSHAKE, TLS_SERVER_CERT,       'S', {s2n_server_cert_send,     s2n_server_cert_recv,      NULL}},                          /* SERVER_CERT               */
+    {TLS_HANDSHAKE, TLS_SERVER_CERT_STATUS,'S', {s2n_server_status_send,   s2n_server_status_recv,    NULL}},                          /* SERVER_CERT_STATUS        */
+    {TLS_HANDSHAKE, TLS_SERVER_KEY,        'S', {s2n_server_key_send,      s2n_server_key_recv,       NULL}},                          /* SERVER_KEY                */
+    {TLS_HANDSHAKE, TLS_SERVER_CERT_REQ,   'S', {NULL,                     NULL,                      NULL}},                          /* SERVER_CERT_REQ           */
+    {TLS_HANDSHAKE, TLS_SERVER_HELLO_DONE, 'S', {s2n_server_done_send,     s2n_server_done_recv,      NULL}},                          /* SERVER_HELLO_DONE         */
+    {TLS_HANDSHAKE, TLS_CLIENT_CERT,       'C', {NULL,                     NULL,                      NULL}},                          /* CLIENT_CERT               */
+    {TLS_HANDSHAKE, TLS_CLIENT_KEY,        'C', {s2n_client_key_recv,      s2n_client_key_send,       NULL}},                          /* CLIENT_KEY                */
+    {TLS_HANDSHAKE, TLS_CLIENT_CERT_VERIFY,'C', {NULL,                     NULL,                      NULL}},                          /* CLIENT_CERT_VERIFY        */
+    {TLS_CHANGE_CIPHER_SPEC, 0,            'C', {s2n_client_ccs_recv,      s2n_client_ccs_send,       NULL}},                          /* CLIENT_CHANGE_CIPHER_SPEC */
+    {TLS_HANDSHAKE, TLS_CLIENT_FINISHED,   'C', {s2n_client_finished_recv, s2n_client_finished_send,  s2n_client_finished_post_send}}, /* CLIENT_FINISHED           */
+    {TLS_CHANGE_CIPHER_SPEC, 0,            'S', {s2n_server_ccs_send,      s2n_server_ccs_recv,       NULL}},                          /* SERVER_CHANGE_CIPHER_SPEC */
+    {TLS_HANDSHAKE, TLS_SERVER_FINISHED,   'S', {s2n_server_finished_send, s2n_server_finished_recv,  NULL}},                          /* SERVER_FINISHED           */
     {TLS_APPLICATION_DATA, 0,              'B', {NULL, NULL}}    /* HANDSHAKE_OVER            */
 };
 
@@ -81,6 +81,8 @@ static int s2n_conn_update_handshake_hashes(struct s2n_connection *conn, struct 
     GUARD(s2n_hash_update(&conn->handshake.server_md5, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.server_sha1, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.server_sha256, data->data, data->size));
+    //FIXME: we can eliminate these extra hash contexts by using EVP_MD_CTX_copy
+    GUARD(s2n_hash_update(&conn->handshake.server_sha256_2, data->data, data->size));
     if (conn->actual_protocol_version > S2N_TLS13) {
 	GUARD(s2n_hash_update(&conn->handshake.server_hello, data->data, data->size));
     }
@@ -133,6 +135,11 @@ static int handshake_write_io(struct s2n_connection *conn)
 
     /* Actually send the record */
     GUARD(s2n_flush(conn, &blocked));
+
+    /* Invoke the post-write handler */
+    if (state_machine[conn->handshake.state].handler[2]) {
+	GUARD(state_machine[conn->handshake.state].handler[2] (conn));
+    }
 
     /* If we're done sending the last record, reset everything */
     if (s2n_stuffer_data_available(&conn->handshake.io) == 0) {

@@ -39,6 +39,9 @@ int s2n_client_finished_recv(struct s2n_connection *conn)
     }
 
     if (conn->actual_protocol_version == S2N_TLS13) {
+	memcpy_check(&conn->active, &conn->pending, sizeof(conn->active));
+	conn->client = &conn->active;
+
 	conn->handshake.next_state = HANDSHAKE_OVER;
     } else {
 	conn->handshake.next_state = SERVER_CHANGE_CIPHER_SPEC;
@@ -55,17 +58,17 @@ int s2n_client_finished_send(struct s2n_connection *conn)
 
     if (conn->actual_protocol_version < S2N_TLS13) {
 	GUARD(s2n_prf_key_expansion(conn));
+	GUARD(s2n_prf_client_finished(conn));
     }
-    GUARD(s2n_prf_client_finished(conn));
-	//FIXME: *after* we send client finished, we
-	//       will do final key expansion
 
     struct s2n_blob seq = {.data = conn->pending.client_sequence_number, .size = sizeof(conn->pending.client_sequence_number) };
     GUARD(s2n_blob_zero(&seq));
     our_version = conn->handshake.client_finished;
 
-    /* Update the client to use the pending cipher suite */
-    conn->client = &conn->pending;
+    if (conn->actual_protocol_version < S2N_TLS13) {
+	/* Update the client to use the pending cipher suite */
+	conn->client = &conn->pending;
+    }
 
     if (conn->actual_protocol_version == S2N_SSLv3) {
         GUARD(s2n_stuffer_write_bytes(&conn->handshake.io, our_version, S2N_SSL_FINISHED_LEN));
@@ -78,6 +81,17 @@ int s2n_client_finished_send(struct s2n_connection *conn)
     } else {
 	conn->handshake.next_state = SERVER_CHANGE_CIPHER_SPEC;
     }
+
+    return 0;
+}
+
+int s2n_client_finished_post_send(struct s2n_connection *conn)
+{
+    S2N_DEBUG_ENTER;
+
+    /* Update the pending state to active, and point the client at the active state */
+    memcpy_check(&conn->active, &conn->pending, sizeof(conn->active));
+    conn->client = &conn->active;
 
     return 0;
 }

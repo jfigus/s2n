@@ -160,12 +160,72 @@ static int s2n_prf(struct s2n_connection *conn, struct s2n_blob *secret, struct 
     return 0;
 }
 
+static int s2n_tls13_prf_key_expand(struct s2n_connection *conn, s2n_hmac_algorithm hmac_alg, struct s2n_stuffer *key_material)
+{
+    struct s2n_blob client_key;
+    struct s2n_blob server_key;
+    int mac_size;
+
+    GUARD((mac_size = s2n_hmac_digest_size(hmac_alg)));
+
+    //FIXME: Not sure why we need MAC keys, this needs to go away.  But the s2n record
+    //       layer always does the MAC calculation, even for AEAD ciphers.  Not sure why.
+    /* Seed the client MAC */
+    uint8_t *client_write_mac_key = s2n_stuffer_raw_read(key_material, mac_size);
+    notnull_check(client_write_mac_key);
+    GUARD(s2n_hmac_init(&conn->pending.client_record_mac, hmac_alg, client_write_mac_key, mac_size));
+
+    /* Seed the server MAC */
+    uint8_t *server_write_mac_key = s2n_stuffer_raw_read(key_material, mac_size);
+    notnull_check(server_write_mac_key);
+    GUARD(s2n_hmac_init(&conn->pending.server_record_mac, hmac_alg, server_write_mac_key, mac_size));
+
+    /* Make the client key */
+    client_key.size = conn->pending.cipher_suite->cipher->key_material_size;
+    client_key.data = s2n_stuffer_raw_read(key_material, client_key.size);
+    s2n_debug_dumphex("clientkey: ", client_key.data, client_key.size);
+    notnull_check(client_key.data);
+    if (conn->mode == S2N_CLIENT) {
+        GUARD(conn->pending.cipher_suite->cipher->get_encryption_key(&conn->pending.client_key, &client_key));
+    } else {
+        GUARD(conn->pending.cipher_suite->cipher->get_decryption_key(&conn->pending.client_key, &client_key));
+    }
+
+    /* Make the server key */
+    server_key.size = conn->pending.cipher_suite->cipher->key_material_size;
+    server_key.data = s2n_stuffer_raw_read(key_material, server_key.size);
+    s2n_debug_dumphex("serverkey: ", server_key.data, server_key.size);
+    notnull_check(server_key.data);
+    if (conn->mode == S2N_SERVER) {
+        GUARD(conn->pending.cipher_suite->cipher->get_encryption_key(&conn->pending.server_key, &server_key));
+    } else {
+        GUARD(conn->pending.cipher_suite->cipher->get_decryption_key(&conn->pending.server_key, &server_key));
+    }
+
+    if (conn->pending.cipher_suite->cipher->type == S2N_AEAD) {
+        /* Generate the IVs */
+        struct s2n_blob client_implicit_iv;
+        client_implicit_iv.data = conn->pending.client_implicit_iv;
+        client_implicit_iv.size = conn->pending.cipher_suite->cipher->io.aead.fixed_iv_size;
+        GUARD(s2n_stuffer_read(key_material, &client_implicit_iv));
+	s2n_debug_dumphex("client_implicit_iv: ", client_implicit_iv.data, client_implicit_iv.size);
+
+        struct s2n_blob server_implicit_iv;
+        server_implicit_iv.data = conn->pending.server_implicit_iv;
+        server_implicit_iv.size = conn->pending.cipher_suite->cipher->io.aead.fixed_iv_size;
+        GUARD(s2n_stuffer_read(key_material, &server_implicit_iv));
+	s2n_debug_dumphex("server_implicit_iv: ", server_implicit_iv.data, server_implicit_iv.size);
+    } 
+
+    return 0;
+}
+
 /*
  * Generates the xES value as defined in section 7.1 of rev10
  * and does key expansion for the handshake message protection as
  * defined in 7.2.
  */
-int s2n_tls13_prf_ephemeral_secret(struct s2n_connection *conn, struct s2n_blob *premaster_secret)
+int s2n_tls13_handshake_key_expansion(struct s2n_connection *conn, struct s2n_blob *premaster_secret)
 {
     struct s2n_blob hand_hash;
     struct s2n_blob xES;
@@ -178,8 +238,6 @@ int s2n_tls13_prf_ephemeral_secret(struct s2n_connection *conn, struct s2n_blob 
     struct s2n_blob out;
     uint8_t key_block[128];
     struct s2n_stuffer key_material;
-    struct s2n_blob client_key;
-    struct s2n_blob server_key;
 
     S2N_DEBUG_ENTER;
 
@@ -216,62 +274,12 @@ int s2n_tls13_prf_ephemeral_secret(struct s2n_connection *conn, struct s2n_blob 
     s2n_blob_init(&mESlabel, exp_es_label, sizeof(exp_es_label));
     s2n_blob_init(&out, key_block, sizeof(key_block));
     GUARD(s2n_hkdf_expand_label(hmac_alg, &xES, &mESlabel, &hand_hash, out.size, &out));
-    s2n_debug_dumphex("keyblock: ", out.data, out.size);
+    s2n_debug_dumphex("handshake_keyblock: ", out.data, out.size);
 
     GUARD(s2n_stuffer_init(&key_material, &out));
     GUARD(s2n_stuffer_write(&key_material, &out));
 
-    int mac_size;
-    GUARD((mac_size = s2n_hmac_digest_size(hmac_alg)));
-
-    //FIXME: Not sure why we need MAC keys, this needs to go away.  But the s2n record
-    //       layer always does the MAC calculation, even for AEAD ciphers.  Not sure why.
-    /* Seed the client MAC */
-    uint8_t *client_write_mac_key = s2n_stuffer_raw_read(&key_material, mac_size);
-    notnull_check(client_write_mac_key);
-    GUARD(s2n_hmac_init(&conn->pending.client_record_mac, hmac_alg, client_write_mac_key, mac_size));
-
-    /* Seed the server MAC */
-    uint8_t *server_write_mac_key = s2n_stuffer_raw_read(&key_material, mac_size);
-    notnull_check(server_write_mac_key);
-    GUARD(s2n_hmac_init(&conn->pending.server_record_mac, hmac_alg, server_write_mac_key, mac_size));
-
-    /* Make the client key */
-    client_key.size = conn->pending.cipher_suite->cipher->key_material_size;
-    client_key.data = s2n_stuffer_raw_read(&key_material, client_key.size);
-    s2n_debug_dumphex("clientkey: ", client_key.data, client_key.size);
-    notnull_check(client_key.data);
-    if (conn->mode == S2N_CLIENT) {
-        GUARD(conn->pending.cipher_suite->cipher->get_encryption_key(&conn->pending.client_key, &client_key));
-    } else {
-        GUARD(conn->pending.cipher_suite->cipher->get_decryption_key(&conn->pending.client_key, &client_key));
-    }
-
-    /* Make the server key */
-    server_key.size = conn->pending.cipher_suite->cipher->key_material_size;
-    server_key.data = s2n_stuffer_raw_read(&key_material, server_key.size);
-    s2n_debug_dumphex("serverkey: ", server_key.data, server_key.size);
-    notnull_check(server_key.data);
-    if (conn->mode == S2N_SERVER) {
-        GUARD(conn->pending.cipher_suite->cipher->get_encryption_key(&conn->pending.server_key, &server_key));
-    } else {
-        GUARD(conn->pending.cipher_suite->cipher->get_decryption_key(&conn->pending.server_key, &server_key));
-    }
-
-    if (conn->pending.cipher_suite->cipher->type == S2N_AEAD) {
-        /* Generate the IVs */
-        struct s2n_blob client_implicit_iv;
-        client_implicit_iv.data = conn->pending.client_implicit_iv;
-        client_implicit_iv.size = conn->pending.cipher_suite->cipher->io.aead.fixed_iv_size;
-        GUARD(s2n_stuffer_read(&key_material, &client_implicit_iv));
-	s2n_debug_dumphex("client_implicit_iv: ", client_implicit_iv.data, client_implicit_iv.size);
-
-        struct s2n_blob server_implicit_iv;
-        server_implicit_iv.data = conn->pending.server_implicit_iv;
-        server_implicit_iv.size = conn->pending.cipher_suite->cipher->io.aead.fixed_iv_size;
-        GUARD(s2n_stuffer_read(&key_material, &server_implicit_iv));
-	s2n_debug_dumphex("server_implicit_iv: ", server_implicit_iv.data, server_implicit_iv.size);
-    } 
+    GUARD(s2n_tls13_prf_key_expand(conn, hmac_alg, &key_material));
 
     S2N_DEBUG_EXIT;
 
@@ -280,10 +288,15 @@ int s2n_tls13_prf_ephemeral_secret(struct s2n_connection *conn, struct s2n_blob 
 
 /*
  * Generates the master_secret value as defined in section 7.1 of rev10
+ * This should be invoked just prior to sending the Server Finished message.
+ * The pre-master secret was saved on the connection context when processing
+ * the hello messages.
  */
-int s2n_tls13_prf_master_secret(struct s2n_connection *conn, struct s2n_blob *premaster_secret)
+int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
 {
     struct s2n_blob master_secret;
+    struct s2n_blob pre_master_secret;
+    struct s2n_blob finished_secret;
     struct s2n_blob hand_hash;
     struct s2n_blob xSS;
     struct s2n_blob *xES;
@@ -291,15 +304,22 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn, struct s2n_blob *pr
     struct s2n_blob mES;
     struct s2n_blob mSSlabel;
     struct s2n_blob mESlabel;
+    struct s2n_blob finlabel;
+    struct s2n_blob applabel;
     struct s2n_blob zero;
+    struct s2n_blob out;
     uint8_t exp_ss_label[] = "expanded static secret";
     uint8_t exp_es_label[] = "expanded ephemeral secret";
+    uint8_t finished_label[] = "finished secret";
+    uint8_t app_label[] = "application data key expansion";
     s2n_hmac_algorithm hmac_alg;
     uint8_t dataxSS[EVP_MAX_MD_SIZE];
     uint8_t datamSS[EVP_MAX_MD_SIZE];
     uint8_t datamES[EVP_MAX_MD_SIZE];
     uint8_t L;
     uint8_t hash_digest[EVP_MAX_MD_SIZE];
+    uint8_t key_block[128];
+    struct s2n_stuffer key_material;
 
     S2N_DEBUG_ENTER;
 
@@ -315,7 +335,7 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn, struct s2n_blob *pr
      */
     //FIXME: hard-coded to sha-256, it needs to derive from negotiated cipher suite 
     //FIXME: need to use the entire handshake hash, this is only through serverhello
-    GUARD(s2n_hash_digest(&conn->handshake.server_sha256, hash_digest, SHA256_DIGEST_LENGTH));
+    GUARD(s2n_hash_digest(&conn->handshake.server_sha256_2, hash_digest, SHA256_DIGEST_LENGTH));
     s2n_blob_init(&hand_hash, hash_digest, SHA256_DIGEST_LENGTH);
     s2n_debug_dumphex("handshake_hash: ", hand_hash.data, hand_hash.size);
 
@@ -325,9 +345,11 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn, struct s2n_blob *pr
      */
     s2n_blob_init(&zero, NULL, 0);
     s2n_blob_init(&xSS, dataxSS, 0);
-    GUARD(s2n_hkdf_extract(hmac_alg, &zero, premaster_secret, &xSS));
+    s2n_blob_init(&pre_master_secret, conn->pending.master_secret,conn->pending.pre_master_secret_len);
+    GUARD(s2n_hkdf_extract(hmac_alg, &zero, &pre_master_secret, &xSS));
     s2n_debug_dumphex("xSS: ", xSS.data, xSS.size);
     xES = &xSS;
+    s2n_blob_zero(&pre_master_secret);
 
     /*
      * Calculate mSS and mES
@@ -346,12 +368,36 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn, struct s2n_blob *pr
     /*
      * Calculate the master_secret
      */
-
     master_secret.data = conn->pending.master_secret;
     master_secret.size = L;
     conn->pending.master_secret_len = L;
     GUARD(s2n_hkdf_extract(hmac_alg, &mSS, &mES, &master_secret));
-    s2n_debug_dumphex("mast secr: ", master_secret.data, master_secret.size);
+    s2n_debug_dumphex("master_secret: ", master_secret.data, master_secret.size);
+
+    /*
+     * Calculate the finished_secret
+     */
+    finished_secret.data = conn->pending.finished_secret;
+    finished_secret.size = L;
+    conn->pending.finished_secret_len = L;
+    s2n_blob_init(&finlabel, finished_label, sizeof(finished_label));
+    GUARD(s2n_hkdf_expand_label(hmac_alg, &xSS, &finlabel, &hand_hash, L, &finished_secret));
+    s2n_debug_dumphex("finished_secret: ", finished_secret.data, finished_secret.size);
+
+    /*
+     * Expand master_secret to derive key material for Application
+     */
+    s2n_blob_init(&applabel, app_label, sizeof(app_label));
+    s2n_blob_init(&out, key_block, sizeof(key_block));
+    GUARD(s2n_hkdf_expand_label(hmac_alg, &master_secret, &applabel, &hand_hash, out.size, &out));
+    s2n_debug_dumphex("application_keyblock: ", out.data, out.size);
+
+    GUARD(s2n_stuffer_init(&key_material, &out));
+    GUARD(s2n_stuffer_write(&key_material, &out));
+
+    GUARD(s2n_tls13_prf_key_expand(conn, hmac_alg, &key_material));
+
+    //FIXME: need to zeroize all these secrets
 
     return 0;
 }
@@ -437,6 +483,20 @@ static int s2n_sslv3_server_finished(struct s2n_connection *conn)
     return s2n_sslv3_finished(conn, prefix, &conn->handshake.server_md5, &conn->handshake.server_sha1, conn->handshake.server_finished);
 }
 
+//FIXME: Not implemented yet
+int s2n_tls13_prf_client_finished(struct s2n_connection *conn)
+{
+    struct s2n_blob client_finished;
+
+    S2N_DEBUG_ENTER;
+
+    client_finished.data = conn->handshake.client_finished;
+    client_finished.size = S2N_TLS_FINISHED_LEN;
+    memset(client_finished.data, 0x0, S2N_TLS_FINISHED_LEN);
+
+    return 0;
+}
+
 int s2n_prf_client_finished(struct s2n_connection *conn)
 {
     struct s2n_blob master_secret, md5, sha;
@@ -475,6 +535,20 @@ int s2n_prf_client_finished(struct s2n_connection *conn)
     return s2n_prf(conn, &master_secret, &label, &md5, &sha, &client_finished);
 }
 
+//FIXME: Not implemented yet
+int s2n_tls13_prf_server_finished(struct s2n_connection *conn)
+{
+    struct s2n_blob server_finished;
+
+    S2N_DEBUG_ENTER;
+
+    server_finished.data = conn->handshake.server_finished;
+    server_finished.size = S2N_TLS_FINISHED_LEN;
+    memset(server_finished.data, 0x0, S2N_TLS_FINISHED_LEN);
+
+    return 0;
+}
+
 int s2n_prf_server_finished(struct s2n_connection *conn)
 {
     struct s2n_blob master_secret, md5, sha;
@@ -483,6 +557,8 @@ int s2n_prf_server_finished(struct s2n_connection *conn)
     uint8_t server_finished_label[] = "server finished";
     struct s2n_blob server_finished;
     struct s2n_blob label;
+
+    S2N_DEBUG_ENTER;
 
     if (conn->actual_protocol_version == S2N_SSLv3) {
         return s2n_sslv3_server_finished(conn);

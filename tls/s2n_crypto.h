@@ -54,8 +54,12 @@ struct s2n_crypto_parameters {
     struct s2n_session_key server_key;
 
     uint8_t rsa_premaster_secret[S2N_TLS_SECRET_LEN];
+    uint8_t pre_master_secret[S2N_TLS_SECRET_LEN];
+    uint8_t pre_master_secret_len; 
     uint8_t master_secret[S2N_TLS_SECRET_LEN];
     uint8_t master_secret_len; /* TLS 1.3 master_secret is length of hash function */
+    uint8_t finished_secret[S2N_TLS_SECRET_LEN];
+    uint8_t finished_secret_len; 
     uint8_t client_random[S2N_TLS_RANDOM_DATA_LEN];
     uint8_t server_random[S2N_TLS_RANDOM_DATA_LEN];
     uint8_t client_implicit_iv[S2N_TLS_MAX_IV_LEN];

@@ -32,11 +32,13 @@ following TLS 1.3 requirements have been implemented:
 * HKDF is implemented per RFC5869 to generate xES and master_secret
 * ECDHE key exchange is working (limited to prime256v1 curve)
 * Handshake key expansion using xES is working
+* Application key expansion using master_secret
 * Obsolete messages removed from handshake (e.g. ServerKeyExchange)
 
 The following items remain to fully implement 1-RTT:
 
-* Application key expansion using master_secret
+* Server CertificateVerify message not implemented
+* Both server and client Finished messages need proper hash calculation
 * HelloRetryRequest message not implemented
 * ServerConfiguration message not implemented
 * Hash selection is not derived from negotiated cipher suite

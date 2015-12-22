@@ -161,12 +161,21 @@ int s2n_tls13_dodh(struct s2n_connection *conn)
 
     /* Turn the pre-master secret into a master secret and
      * derive the key material for the session */
-    GUARD(s2n_tls13_prf_ephemeral_secret(conn, &shared_key));
-    //FIXME: we'll probably need to save shared_key or mES for when
-    //       the master_secret is generated later
-    //FIXME: these will be called after handshake completes
-    //GUARD(s2n_tls13_prf_master_secret(conn, &shared_key));
-    //GUARD(s2n_prf_key_expansion(conn));
+    GUARD(s2n_tls13_handshake_key_expansion(conn, &shared_key));
+
+    /*
+     * It's too early to calculate the master_secret since not all
+     * the handshake messages have been hashed.  We'll need to
+     * save the pre_master_secret for later when it's time
+     * to calculate the master_secret.
+     */
+    if (shared_key.size <= S2N_TLS_SECRET_LEN) {
+	memcpy(conn->pending.pre_master_secret, shared_key.data, shared_key.size);
+	conn->pending.pre_master_secret_len = shared_key.size;
+    } else {
+        S2N_ERROR(S2N_ERR_BAD_MESSAGE);
+	return -1;
+    }
 
     /* Erase the pre-master secret */
     GUARD(s2n_blob_zero(&shared_key));

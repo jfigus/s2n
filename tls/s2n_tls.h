@@ -53,6 +53,7 @@ extern int s2n_client_ccs_recv(struct s2n_connection *conn);
 extern int s2n_server_ccs_send(struct s2n_connection *conn);
 extern int s2n_server_ccs_recv(struct s2n_connection *conn);
 extern int s2n_client_finished_send(struct s2n_connection *conn);
+extern int s2n_client_finished_post_send(struct s2n_connection *conn);
 extern int s2n_client_finished_recv(struct s2n_connection *conn);
 extern int s2n_server_finished_send(struct s2n_connection *conn);
 extern int s2n_server_finished_recv(struct s2n_connection *conn);
