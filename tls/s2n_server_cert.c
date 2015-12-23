@@ -67,13 +67,8 @@ int s2n_server_cert_recv(struct s2n_connection *conn)
     gte_check(certificate_count, 1);
 
     if (conn->actual_protocol_version == S2N_TLS13) {
-	/* Calculate master_secret since this is the last handshake
-	 * message prior to the finished msg. */
-	//FIXME: this needs to occur after CertificateVerify is sent once we support that message
-	GUARD(s2n_tls13_prf_master_secret(conn));
-
 	//FIXME: no client auth support yet
-	conn->handshake.next_state = SERVER_FINISHED;
+	conn->handshake.next_state = SERVER_CERT_VERIFY;
     } else {
 	conn->handshake.next_state = SERVER_HELLO_DONE;
 
@@ -103,7 +98,7 @@ int s2n_server_cert_send(struct s2n_connection *conn)
 
     if (conn->actual_protocol_version == S2N_TLS13) {
 	//FIXME: no client auth support yet
-	conn->handshake.next_state = SERVER_FINISHED;
+	conn->handshake.next_state = SERVER_CERT_VERIFY;
     } else {
 	conn->handshake.next_state = SERVER_HELLO_DONE;
 

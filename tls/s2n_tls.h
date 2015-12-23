@@ -66,6 +66,8 @@ extern int s2n_client_extensions_recv(struct s2n_connection *conn, struct s2n_bl
 extern int s2n_server_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *out);
 extern int s2n_server_encrypted_extensions_send(struct s2n_connection *conn, struct s2n_stuffer *out);
 extern int s2n_server_extensions_recv(struct s2n_connection *conn, struct s2n_blob *extensions);
+extern int s2n_server_cert_vfy_send(struct s2n_connection *conn);
+extern int s2n_server_cert_vfy_recv(struct s2n_connection *conn);
 
 extern int s2n_keyshare_send(struct s2n_connection *conn, struct s2n_stuffer *out);
 extern int s2n_keyshare_rcv(struct s2n_connection *conn, struct s2n_stuffer *extension);

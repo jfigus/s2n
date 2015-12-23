@@ -50,6 +50,7 @@ struct s2n_handshake {
         SERVER_HELLO,
 	SERVER_ENC_EXT,
         SERVER_CERT,
+        SERVER_CERT_VERIFY,
         SERVER_CERT_STATUS,
         SERVER_KEY,
         SERVER_CERT_REQ,

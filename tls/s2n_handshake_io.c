@@ -37,7 +37,7 @@
 #define TLS_SERVER_CERT_REQ     13
 #define TLS_SERVER_HELLO_DONE   14
 #define TLS_CLIENT_CERT         11  /* Same as SERVER_CERT */
-#define TLS_CLIENT_CERT_VERIFY  15
+#define TLS_CERT_VERIFY         15
 #define TLS_CLIENT_KEY          16
 #define TLS_CLIENT_FINISHED     20
 #define TLS_SERVER_FINISHED     20  /* Same as CLIENT_FINISHED */
@@ -56,13 +56,14 @@ static struct s2n_handshake_action state_machine[] = {
     {TLS_HANDSHAKE, TLS_SERVER_HELLO,      'S', {s2n_server_hello_send,    s2n_server_hello_recv,     NULL}},                          /* SERVER_HELLO              */
     {TLS_HANDSHAKE, TLS_ENCRYPTED_EXT,     'S', {s2n_encrypted_ext_send,   s2n_encrypted_ext_recv,    NULL}},                          /* SERVER_ENC_EXT            */
     {TLS_HANDSHAKE, TLS_SERVER_CERT,       'S', {s2n_server_cert_send,     s2n_server_cert_recv,      NULL}},                          /* SERVER_CERT               */
+    {TLS_HANDSHAKE, TLS_CERT_VERIFY,       'S', {s2n_server_cert_vfy_send, s2n_server_cert_vfy_recv,  NULL}},                          /* SERVER_CERT_VERIFY        */
     {TLS_HANDSHAKE, TLS_SERVER_CERT_STATUS,'S', {s2n_server_status_send,   s2n_server_status_recv,    NULL}},                          /* SERVER_CERT_STATUS        */
     {TLS_HANDSHAKE, TLS_SERVER_KEY,        'S', {s2n_server_key_send,      s2n_server_key_recv,       NULL}},                          /* SERVER_KEY                */
     {TLS_HANDSHAKE, TLS_SERVER_CERT_REQ,   'S', {NULL,                     NULL,                      NULL}},                          /* SERVER_CERT_REQ           */
     {TLS_HANDSHAKE, TLS_SERVER_HELLO_DONE, 'S', {s2n_server_done_send,     s2n_server_done_recv,      NULL}},                          /* SERVER_HELLO_DONE         */
     {TLS_HANDSHAKE, TLS_CLIENT_CERT,       'C', {NULL,                     NULL,                      NULL}},                          /* CLIENT_CERT               */
     {TLS_HANDSHAKE, TLS_CLIENT_KEY,        'C', {s2n_client_key_recv,      s2n_client_key_send,       NULL}},                          /* CLIENT_KEY                */
-    {TLS_HANDSHAKE, TLS_CLIENT_CERT_VERIFY,'C', {NULL,                     NULL,                      NULL}},                          /* CLIENT_CERT_VERIFY        */
+    {TLS_HANDSHAKE, TLS_CERT_VERIFY,       'C', {NULL,                     NULL,                      NULL}},                          /* CLIENT_CERT_VERIFY        */
     {TLS_CHANGE_CIPHER_SPEC, 0,            'C', {s2n_client_ccs_recv,      s2n_client_ccs_send,       NULL}},                          /* CLIENT_CHANGE_CIPHER_SPEC */
     {TLS_HANDSHAKE, TLS_CLIENT_FINISHED,   'C', {s2n_client_finished_recv, s2n_client_finished_send,  s2n_client_finished_post_send}}, /* CLIENT_FINISHED           */
     {TLS_CHANGE_CIPHER_SPEC, 0,            'S', {s2n_server_ccs_send,      s2n_server_ccs_recv,       NULL}},                          /* SERVER_CHANGE_CIPHER_SPEC */
