@@ -30,6 +30,10 @@ int s2n_client_finished_recv(struct s2n_connection *conn)
 
     S2N_DEBUG_ENTER;
 
+    if (conn->actual_protocol_version == S2N_TLS13) {
+	GUARD(s2n_tls13_prf_finished(conn, 1));
+    }
+
     our_version = conn->handshake.client_finished;
     uint8_t *their_version = s2n_stuffer_raw_read(&conn->handshake.io, S2N_TLS_FINISHED_LEN);
     notnull_check(their_version);
@@ -59,6 +63,8 @@ int s2n_client_finished_send(struct s2n_connection *conn)
     if (conn->actual_protocol_version < S2N_TLS13) {
 	GUARD(s2n_prf_key_expansion(conn));
 	GUARD(s2n_prf_client_finished(conn));
+    } else {
+	GUARD(s2n_tls13_prf_finished(conn, 1));
     }
 
     struct s2n_blob seq = {.data = conn->pending.client_sequence_number, .size = sizeof(conn->pending.client_sequence_number) };

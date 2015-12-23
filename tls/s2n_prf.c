@@ -334,8 +334,7 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
      * Get the current handshake hash up to this point in the handshake
      */
     //FIXME: hard-coded to sha-256, it needs to derive from negotiated cipher suite 
-    //FIXME: need to use the entire handshake hash, this is only through serverhello
-    GUARD(s2n_hash_digest(&conn->handshake.server_sha256_2, hash_digest, SHA256_DIGEST_LENGTH));
+    GUARD(s2n_hash_digest(&conn->handshake.server_sha256, hash_digest, SHA256_DIGEST_LENGTH));
     s2n_blob_init(&hand_hash, hash_digest, SHA256_DIGEST_LENGTH);
     s2n_debug_dumphex("handshake_hash: ", hand_hash.data, hand_hash.size);
 
@@ -484,16 +483,59 @@ static int s2n_sslv3_server_finished(struct s2n_connection *conn)
     return s2n_sslv3_finished(conn, prefix, &conn->handshake.server_md5, &conn->handshake.server_sha1, conn->handshake.server_finished);
 }
 
-//FIXME: Not implemented yet
-int s2n_tls13_prf_client_finished(struct s2n_connection *conn)
+int s2n_tls13_prf_finished(struct s2n_connection *conn, uint8_t client)
 {
-    struct s2n_blob client_finished;
+    struct s2n_blob finished;
+    struct s2n_blob hand_hash;
+    uint8_t hash_digest[EVP_MAX_MD_SIZE];
+    EVP_PKEY *mac_key;
+    const EVP_MD *md = EVP_sha256(); //FIXME: should not be hard-coded
+    EVP_MD_CTX ctx;
+    size_t h_len;
+    uint8_t c_label[] = "client finished";
+    uint8_t s_label[] = "server finished";
+    uint8_t *label;
+    uint8_t label_len;
 
     S2N_DEBUG_ENTER;
 
-    client_finished.data = conn->handshake.client_finished;
-    client_finished.size = S2N_TLS_FINISHED_LEN;
-    memset(client_finished.data, 0x0, S2N_TLS_FINISHED_LEN);
+    if (!md) return -1;
+
+    if (client) {
+	label = &c_label[0];
+	label_len = sizeof(c_label);
+    } else {
+	label = &s_label[0];
+	label_len = sizeof(s_label);
+    }
+
+    mac_key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, conn->pending.finished_secret, 32);
+    EVP_MD_CTX_init(&ctx);
+    if (!EVP_DigestSignInit(&ctx, NULL, md, NULL, mac_key)) {
+	return -1;
+    }
+    if (!EVP_DigestSignUpdate(&ctx, label, label_len)) {
+	return -1;
+    }    
+    
+    //FIXME: still hard-coded to sha256
+    GUARD(s2n_hash_digest(&conn->handshake.server_sha256, hash_digest, SHA256_DIGEST_LENGTH));
+    s2n_blob_init(&hand_hash, hash_digest, SHA256_DIGEST_LENGTH);
+    s2n_debug_dumphex("handshake_hash: ", hand_hash.data, hand_hash.size);
+    if (!EVP_DigestSignUpdate(&ctx, hand_hash.data, hand_hash.size)) {
+	return -1;
+    }
+
+    if (client) {
+	finished.data = conn->handshake.client_finished;
+    } else {
+	finished.data = conn->handshake.server_finished;
+    }
+    finished.size = S2N_TLS_FINISHED_LEN;
+    if (!EVP_DigestSignFinal(&ctx, finished.data, &h_len)) {
+	return -1;
+    }
+    s2n_debug_dumphex("fin_data: ", finished.data, h_len);
 
     return 0;
 }
@@ -534,20 +576,6 @@ int s2n_prf_client_finished(struct s2n_connection *conn)
     sha.size = SHA_DIGEST_LENGTH;
 
     return s2n_prf(conn, &master_secret, &label, &md5, &sha, &client_finished);
-}
-
-//FIXME: Not implemented yet
-int s2n_tls13_prf_server_finished(struct s2n_connection *conn)
-{
-    struct s2n_blob server_finished;
-
-    S2N_DEBUG_ENTER;
-
-    server_finished.data = conn->handshake.server_finished;
-    server_finished.size = S2N_TLS_FINISHED_LEN;
-    memset(server_finished.data, 0x0, S2N_TLS_FINISHED_LEN);
-
-    return 0;
 }
 
 int s2n_prf_server_finished(struct s2n_connection *conn)

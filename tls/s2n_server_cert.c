@@ -71,7 +71,6 @@ int s2n_server_cert_recv(struct s2n_connection *conn)
 	 * message prior to the finished msg. */
 	//FIXME: this needs to occur after CertificateVerify is sent once we support that message
 	GUARD(s2n_tls13_prf_master_secret(conn));
-	GUARD(s2n_tls13_prf_client_finished(conn));
 
 	//FIXME: no client auth support yet
 	conn->handshake.next_state = SERVER_FINISHED;

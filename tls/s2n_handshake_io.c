@@ -70,9 +70,15 @@ static struct s2n_handshake_action state_machine[] = {
     {TLS_APPLICATION_DATA, 0,              'B', {NULL, NULL}}    /* HANDSHAKE_OVER            */
 };
 
-static int s2n_conn_update_handshake_hashes(struct s2n_connection *conn, struct s2n_blob *data)
+static int s2n_conn_update_handshake_hashes(struct s2n_connection *conn, struct s2n_blob *data, uint8_t message_type)
 {
     S2N_DEBUG_ENTER;
+
+    if (conn->actual_protocol_version == S2N_TLS13 && 
+        (message_type == TLS_CLIENT_FINISHED || message_type == TLS_SERVER_FINISHED)) {
+	//We do not hash the finished messsages in TLS 1.3
+	return 0;
+    }
 
     //TODO: Wasted cycles here, we shouldn't need MD5/SHA1 for >TLS 1.2
     GUARD(s2n_hash_update(&conn->handshake.client_md5, data->data, data->size));
@@ -81,8 +87,6 @@ static int s2n_conn_update_handshake_hashes(struct s2n_connection *conn, struct 
     GUARD(s2n_hash_update(&conn->handshake.server_md5, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.server_sha1, data->data, data->size));
     GUARD(s2n_hash_update(&conn->handshake.server_sha256, data->data, data->size));
-    //FIXME: we can eliminate these extra hash contexts by using EVP_MD_CTX_copy
-    GUARD(s2n_hash_update(&conn->handshake.server_sha256_2, data->data, data->size));
     if (conn->actual_protocol_version > S2N_TLS13) {
 	GUARD(s2n_hash_update(&conn->handshake.server_hello, data->data, data->size));
     }
@@ -130,7 +134,7 @@ static int handshake_write_io(struct s2n_connection *conn)
 
     /* MD5 and SHA sum the handshake data too */
     if (record_type == TLS_HANDSHAKE) {
-        GUARD(s2n_conn_update_handshake_hashes(conn, &out));
+        GUARD(s2n_conn_update_handshake_hashes(conn, &out, state_machine[conn->handshake.state].message_type));
     }
 
     /* Actually send the record */
@@ -199,7 +203,7 @@ static int read_full_handshake_message(struct s2n_connection *conn, uint8_t *mes
         notnull_check(handshake.data);
 
         /* MD5 and SHA sum the handshake data too */
-        GUARD(s2n_conn_update_handshake_hashes(conn, &handshake));
+        GUARD(s2n_conn_update_handshake_hashes(conn, &handshake, *message_type));
 
         return 0;
     }
@@ -238,11 +242,11 @@ static int handshake_read_io(struct s2n_connection *conn)
 
         /* Add the message to our handshake hashes */
         struct s2n_blob hashed = {.data = conn->header_in.blob.data + 2,.size = 3 };
-        GUARD(s2n_conn_update_handshake_hashes(conn, &hashed));
+        GUARD(s2n_conn_update_handshake_hashes(conn, &hashed, 0));
 
         hashed.data = conn->in.blob.data;
         hashed.size = s2n_stuffer_data_available(&conn->in);
-        GUARD(s2n_conn_update_handshake_hashes(conn, &hashed));
+        GUARD(s2n_conn_update_handshake_hashes(conn, &hashed, 0));
 
         /* Handle an SSLv2 client hello */
         GUARD(s2n_stuffer_copy(&conn->in, &conn->handshake.io, s2n_stuffer_data_available(&conn->in)));

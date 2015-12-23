@@ -115,6 +115,12 @@ int s2n_hash_update(struct s2n_hash_state *state, const void *data, uint32_t siz
 int s2n_hash_digest(struct s2n_hash_state *state, void *out, uint32_t size)
 {
     int r;
+    struct s2n_hash_state temp_state;
+
+    //TODO: It's unfortunate this code doesn't use the OpenSSL EVP interface, which
+    //      allows for copying a hash context.  There are cases where we don't want
+    //      to call Final on a context since the running hash of the handshake messages
+    //      is referenced multiple times during the TLS 1.3 handshake.
     switch (state->alg) {
     case S2N_HASH_NONE:
         r = 1;
@@ -133,11 +139,14 @@ int s2n_hash_digest(struct s2n_hash_state *state, void *out, uint32_t size)
         break;
     case S2N_HASH_SHA256:
         eq_check(size, SHA256_DIGEST_LENGTH);
-        r = SHA256_Final(out, &state->hash_ctx.sha256);
+	//FIXME: we'll need a similar approach for each digest type, would be best to use EVP_MD_CTX_copy
+	memcpy(&temp_state, state, sizeof(struct s2n_hash_state));
+        r = SHA256_Final(out, &temp_state.hash_ctx.sha256);
         break;
     case S2N_HASH_SHA384:
         eq_check(size, SHA384_DIGEST_LENGTH);
-        r = SHA512_Final(out, &state->hash_ctx.sha384);
+	memcpy(&temp_state, state, sizeof(struct s2n_hash_state));
+        r = SHA512_Final(out, &temp_state.hash_ctx.sha384);
         break;
     case S2N_HASH_SHA512:
         eq_check(size, SHA512_DIGEST_LENGTH);

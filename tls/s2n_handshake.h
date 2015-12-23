@@ -34,7 +34,6 @@ struct s2n_handshake {
     struct s2n_hash_state server_md5;
     struct s2n_hash_state server_sha1;
     struct s2n_hash_state server_sha256;
-    struct s2n_hash_state server_sha256_2;
     struct s2n_hash_state server_hello;
 
     uint8_t server_finished[S2N_SSL_FINISHED_LEN];

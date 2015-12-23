@@ -33,12 +33,15 @@ int s2n_server_finished_recv(struct s2n_connection *conn)
 
     if (conn->actual_protocol_version == S2N_TLS13) {
 	/* Compute the finished message */
-	GUARD(s2n_tls13_prf_server_finished(conn));
+	GUARD(s2n_tls13_prf_finished(conn, 0));
     }
     our_version = conn->handshake.server_finished;
 
     if (conn->actual_protocol_version == S2N_SSLv3) {
         length = S2N_SSL_FINISHED_LEN;
+    } else if (conn->actual_protocol_version == S2N_TLS13) {
+	//FIXME: this is the sha256 length, should not be hard-coded
+	length = 32;
     }
 
     uint8_t *their_version = s2n_stuffer_raw_read(&conn->handshake.io, length);
@@ -66,14 +69,19 @@ int s2n_server_finished_send(struct s2n_connection *conn)
     S2N_DEBUG_ENTER;
 
     if (conn->actual_protocol_version == S2N_TLS13) {
+	/* Generate and save the master_secret before we send the finished message */
+	GUARD(s2n_tls13_prf_master_secret(conn));
 	/* Compute the finished message */
-	GUARD(s2n_tls13_prf_server_finished(conn));
+	GUARD(s2n_tls13_prf_finished(conn, 0));
     }
 
     our_version = conn->handshake.server_finished;
 
     if (conn->actual_protocol_version == S2N_SSLv3) {
         length = S2N_SSL_FINISHED_LEN;
+    } else if (conn->actual_protocol_version == S2N_TLS13) {
+	//FIXME: this is the sha256 length, should not be hard-coded
+	length = 32;
     }
 
     GUARD(s2n_stuffer_write_bytes(&conn->handshake.io, our_version, length));
@@ -81,7 +89,7 @@ int s2n_server_finished_send(struct s2n_connection *conn)
     /* For TLS 1.3, we started encrypting when sending the Encrypted Ext message */
     if (conn->actual_protocol_version < S2N_TLS13) {
 	//FIXME: this will need to move once we support client auth
-	GUARD(s2n_tls13_prf_client_finished(conn));
+	GUARD(s2n_prf_client_finished(conn));
 
 	/* Zero the sequence number */
 	struct s2n_blob seq = {.data = conn->pending.server_sequence_number, .size = S2N_TLS_SEQUENCE_NUM_LEN };
@@ -92,8 +100,6 @@ int s2n_server_finished_send(struct s2n_connection *conn)
 	conn->client = &conn->active;
 	conn->handshake.next_state = HANDSHAKE_OVER;
     } else {
-	/* Generate and save the master_secret before we send the finished message */
-	GUARD(s2n_tls13_prf_master_secret(conn));
 	conn->handshake.next_state = CLIENT_FINISHED;
     }
 

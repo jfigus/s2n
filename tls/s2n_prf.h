@@ -43,8 +43,7 @@ union s2n_prf_working_space {
 
 extern int s2n_tls13_handshake_key_expansion(struct s2n_connection *conn, struct s2n_blob *premaster_secret);
 extern int s2n_tls13_prf_master_secret(struct s2n_connection *conn);
-extern int s2n_tls13_prf_server_finished(struct s2n_connection *conn);
-extern int s2n_tls13_prf_client_finished(struct s2n_connection *conn);
+extern int s2n_tls13_prf_finished(struct s2n_connection *conn, uint8_t client);
 extern int s2n_prf_master_secret(struct s2n_connection *conn, struct s2n_blob *premaster_secret);
 extern int s2n_prf_key_expansion(struct s2n_connection *conn);
 extern int s2n_prf_server_finished(struct s2n_connection *conn);

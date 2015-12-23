@@ -34,15 +34,16 @@ following TLS 1.3 requirements have been implemented:
 * Handshake key expansion using xES is working
 * Application key expansion using master_secret
 * Obsolete messages removed from handshake (e.g. ServerKeyExchange)
+* Both server and client Finished messages need proper hash calculation
 
 The following items remain to fully implement 1-RTT:
 
 * Server CertificateVerify message not implemented
-* Both server and client Finished messages need proper hash calculation
 * HelloRetryRequest message not implemented
 * ServerConfiguration message not implemented
 * Hash selection is not derived from negotiated cipher suite
 * DH key exchange is not implemented in KeyShare extension
+* Need to review record layer changes and implement
 
 ## How to use this fork 
 
