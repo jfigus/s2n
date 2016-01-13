@@ -32,6 +32,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <openssl/evp.h>
 #include "s2n_hkdf.h"
+#include "utils/s2n_safety.h"
 
 static const EVP_MD* s2n_hkdf_get_evp_md(s2n_hmac_algorithm alg)
 {
@@ -173,8 +174,8 @@ int s2n_hkdf_expand_label(s2n_hmac_algorithm alg, struct s2n_blob *secret, struc
     /*
      * We must construct HkdfLabel as:
      *    uint16_t length
-     *    opaque hash_value<0..255>
      *    opaque label<9..255>
+     *    opaque hash_value<0..255>
      *
      * Recall that a variable length opaque will have a size value
      * prefixed to the char array.  The size of the length value is
@@ -188,11 +189,16 @@ int s2n_hkdf_expand_label(s2n_hmac_algorithm alg, struct s2n_blob *secret, struc
 	return -1;
     }
     hkdf_lbl[0] = 0;
-    hkdf_lbl[1] = L;
-    hkdf_lbl[2] = hash->size;
-    memcpy(&hkdf_lbl[3], hash->data, hash->size);
-    hkdf_lbl[hash->size+3] = label->size;
-    memcpy(&hkdf_lbl[hash->size+4], label->data, label->size);
+    hkdf_lbl[1] = hkdf_lbl_len;
+
+    hkdf_lbl[2] = label->size;
+    memcpy(&hkdf_lbl[3], label->data, label->size);
+
+    hkdf_lbl[label->size+3] = hash->size;
+    memcpy(&hkdf_lbl[label->size+4], hash->data, hash->size);
+
+    s2n_debug_dumphex("HkdfLabel: ", hkdf_lbl, hkdf_lbl_len);
+
     s2n_blob_init(&hkdf_label, hkdf_lbl, hkdf_lbl_len);
 
     rv = s2n_hkdf_expand(alg, secret, &hkdf_label, L, result);

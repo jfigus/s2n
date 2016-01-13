@@ -308,10 +308,10 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
     struct s2n_blob applabel;
     struct s2n_blob zero;
     struct s2n_blob out;
-    uint8_t exp_ss_label[] = "expanded static secret";
-    uint8_t exp_es_label[] = "expanded ephemeral secret";
-    uint8_t finished_label[] = "finished secret";
-    uint8_t app_label[] = "application data key expansion";
+    uint8_t exp_ss_label[] = "TLS 1.3, expanded static secret";
+    uint8_t exp_es_label[] = "TLS 1.3, expanded ephemeral secret";
+    uint8_t finished_label[] = "TLS 1.3, finished secret";
+    uint8_t app_label[] = "TLS 1.3, application data key expansion";
     s2n_hmac_algorithm hmac_alg;
     uint8_t dataxSS[EVP_MAX_MD_SIZE];
     uint8_t datamSS[EVP_MAX_MD_SIZE];
@@ -355,12 +355,12 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
      * Calculate mSS and mES
      */
     s2n_blob_init(&mSS, datamSS, 0);
-    s2n_blob_init(&mSSlabel, exp_ss_label, sizeof(exp_ss_label));
+    s2n_blob_init(&mSSlabel, exp_ss_label, sizeof(exp_ss_label)-1);
     GUARD(s2n_hkdf_expand_label(hmac_alg, &xSS, &mSSlabel, &hand_hash, L, &mSS));
     s2n_debug_dumphex("mSS: ", mSS.data, mSS.size);
 
     s2n_blob_init(&mES, datamES, 0);
-    s2n_blob_init(&mESlabel, exp_es_label, sizeof(exp_es_label));
+    s2n_blob_init(&mESlabel, exp_es_label, sizeof(exp_es_label)-1);
     GUARD(s2n_hkdf_expand_label(hmac_alg, xES, &mESlabel, &hand_hash, L, &mES));
     s2n_debug_dumphex("mSS: ", mES.data, mES.size);
     s2n_blob_zero(&hand_hash);
@@ -380,14 +380,14 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
     finished_secret.data = conn->pending.finished_secret;
     finished_secret.size = L;
     conn->pending.finished_secret_len = L;
-    s2n_blob_init(&finlabel, finished_label, sizeof(finished_label));
+    s2n_blob_init(&finlabel, finished_label, sizeof(finished_label)-1);
     GUARD(s2n_hkdf_expand_label(hmac_alg, &xSS, &finlabel, &hand_hash, L, &finished_secret));
     s2n_debug_dumphex("finished_secret: ", finished_secret.data, finished_secret.size);
 
     /*
      * Expand master_secret to derive key material for Application
      */
-    s2n_blob_init(&applabel, app_label, sizeof(app_label));
+    s2n_blob_init(&applabel, app_label, sizeof(app_label)-1);
     s2n_blob_init(&out, key_block, sizeof(key_block));
     GUARD(s2n_hkdf_expand_label(hmac_alg, &master_secret, &applabel, &hand_hash, out.size, &out));
     s2n_debug_dumphex("application_keyblock: ", out.data, out.size);
