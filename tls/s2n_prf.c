@@ -363,7 +363,6 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
     s2n_blob_init(&mESlabel, exp_es_label, sizeof(exp_es_label)-1);
     GUARD(s2n_hkdf_expand_label(hmac_alg, xES, &mESlabel, &hand_hash, L, &mES));
     s2n_debug_dumphex("mSS: ", mES.data, mES.size);
-    s2n_blob_zero(&hand_hash);
 
     /*
      * Calculate the master_secret
@@ -391,6 +390,7 @@ int s2n_tls13_prf_master_secret(struct s2n_connection *conn)
     s2n_blob_init(&out, key_block, sizeof(key_block));
     GUARD(s2n_hkdf_expand_label(hmac_alg, &master_secret, &applabel, &hand_hash, out.size, &out));
     s2n_debug_dumphex("application_keyblock: ", out.data, out.size);
+    s2n_blob_zero(&hand_hash);
 
     GUARD(s2n_stuffer_init(&key_material, &out));
     GUARD(s2n_stuffer_write(&key_material, &out));
