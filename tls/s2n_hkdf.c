@@ -157,7 +157,7 @@ int s2n_hkdf_expand(s2n_hmac_algorithm alg, struct s2n_blob *prk, struct s2n_blo
 }
 
 int s2n_hkdf_expand_label(s2n_hmac_algorithm alg, struct s2n_blob *secret, struct s2n_blob *label, 
-	                  struct s2n_blob *hash, uint8_t L, struct s2n_blob *result)
+	                  struct s2n_blob *hash, uint8_t Length, struct s2n_blob *result)
 {
     uint16_t hkdf_lbl_len;
     uint8_t *hkdf_lbl;
@@ -189,7 +189,7 @@ int s2n_hkdf_expand_label(s2n_hmac_algorithm alg, struct s2n_blob *secret, struc
 	return -1;
     }
     hkdf_lbl[0] = 0;
-    hkdf_lbl[1] = hkdf_lbl_len;
+    hkdf_lbl[1] = Length;
 
     hkdf_lbl[2] = label->size;
     memcpy(&hkdf_lbl[3], label->data, label->size);
@@ -201,7 +201,7 @@ int s2n_hkdf_expand_label(s2n_hmac_algorithm alg, struct s2n_blob *secret, struc
 
     s2n_blob_init(&hkdf_label, hkdf_lbl, hkdf_lbl_len);
 
-    rv = s2n_hkdf_expand(alg, secret, &hkdf_label, L, result);
+    rv = s2n_hkdf_expand(alg, secret, &hkdf_label, Length, result);
 
     s2n_blob_zero(&hkdf_label);
     free(hkdf_lbl);
